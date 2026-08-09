@@ -121,15 +121,51 @@
   }
   .swatch{ width:11px; height:11px; border-radius:2px; border:1px solid var(--border); }
   .swatch.on{ background:var(--accent); border-color:var(--accent); }
+
+  /* --- tabs --- */
+  .tabs{
+    display:flex; gap:6px; margin-bottom:16px;
+    border-bottom:1px solid var(--border);
+  }
+  .tab{
+    font-family:var(--sans); font-size:12.5px; font-weight:600;
+    color:var(--muted); background:none; border:none;
+    border-bottom:2px solid transparent;
+    padding:8px 4px; margin-bottom:-1px;
+    cursor:pointer; border-radius:0;
+  }
+  .tab:hover{ color:var(--text); border-color:transparent; }
+  .tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .time-row{ display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+  .time-field label{
+    display:block; font-size:11px; color:var(--muted); margin-bottom:6px;
+  }
+  input[type=time]{
+    font-family:var(--mono); font-size:13px;
+    background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px;
+    padding:8px 10px; color-scheme: dark;
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>Weekly Schedule Builder</h1>
-  <p class="subtitle">Click or drag across the grid to paint when the plug should be on. Each column is one weekday, each row is one hour.</p>
+  <h1>Timer String Builder</h1>
+  <p class="subtitle">Builds the <b>TimerConf</b> string for any BrAiNPlug timer mode — paint a weekly grid, pick times for a daily window, or set an ON/OFF duration cycle.</p>
 
+  <div class="tabs">
+    <button class="tab active" data-tab="weekly">Weekly / WeeklySingle</button>
+    <button class="tab" data-tab="daily">Daily / DailySingle</button>
+    <button class="tab" data-tab="duration">Duration</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-weekly">
   <div class="panel">
     <p class="panel-title">Schedule grid</p>
+    <p class="hint" style="margin-top:0; margin-bottom:12px;">Click or drag across the grid to paint when the plug should be on. Each column is one weekday, each row is one hour.</p>
     <div class="grid-scroll">
       <div class="grid-outer" id="grid"></div>
     </div>
@@ -143,6 +179,43 @@
     </div>
     <p class="hint">Note: this grid only paints ranges within a single day. For a range that crosses midnight, generate first, then edit the text below by hand.</p>
   </div>
+  </div>
+
+  <div class="tab-panel" id="tab-daily">
+  <div class="panel">
+    <p class="panel-title">Daily on/off window</p>
+    <div class="time-row">
+      <div class="time-field">
+        <label for="dailyStart">ON at</label>
+        <input type="time" id="dailyStart" step="1" value="08:00:00">
+      </div>
+      <div class="time-field">
+        <label for="dailyEnd">OFF at</label>
+        <input type="time" id="dailyEnd" step="1" value="18:00:00">
+      </div>
+      <button id="dailyGenerateBtn" class="primary">Generate schedule string</button>
+    </div>
+    <p class="hint">Same format for both modes — <b>Daily</b> keeps forcing the state the whole time (survives reboot), <b>DailySingle</b> only fires once at each time. Doesn't have to be a same-day range; e.g. 22:00:00-06:00:00 is valid and just crosses midnight.</p>
+  </div>
+  </div>
+
+  <div class="tab-panel" id="tab-duration">
+  <div class="panel">
+    <p class="panel-title">ON/OFF duration cycle</p>
+    <div class="time-row">
+      <div class="time-field">
+        <label for="durationOn">ON for</label>
+        <input type="time" id="durationOn" step="1" value="00:00:10">
+      </div>
+      <div class="time-field">
+        <label for="durationOff">OFF for</label>
+        <input type="time" id="durationOff" step="1" value="00:00:05">
+      </div>
+      <button id="durationGenerateBtn" class="primary">Generate schedule string</button>
+    </div>
+    <p class="hint">The plug repeats this ON/OFF cycle continuously — good for pulsing/blinking loads. Not a clock time, this is a duration (HH:MM:SS each).</p>
+  </div>
+  </div>
 
   <div class="panel">
     <p class="panel-title">Generated schedule string</p>
@@ -151,17 +224,7 @@
       <button id="copyBtn">Copy to clipboard</button>
     </div>
     <p class="status" id="copyStatus"></p>
-    <p class="hint">Paste this into the <b>WeeklySchedule</b> field on the plug's web UI, and set <b>TimerMode</b> to <b>Weekly</b>.</p>
-  </div>
-
-  <div class="panel">
-    <p class="panel-title">Advanced: send directly to the plug</p>
-    <div class="field-row">
-      <input type="text" id="deviceIp" placeholder="Device IP, e.g. 192.168.1.50">
-      <button id="sendBtn">Send</button>
-    </div>
-    <p class="status" id="sendStatus"></p>
-    <p class="hint">This posts straight to the plug's <code>/text/weekly_schedule_text</code> endpoint. If the web UI has a login (digest auth) enabled, the browser may block this from a page hosted elsewhere — copy/paste above is the reliable fallback.</p>
+    <p class="hint" id="outputHint">Paste this into the <b>TimerConf</b> field on the plug's web UI, and set <b>TimerMode</b> to match.</p>
   </div>
 </div>
 
@@ -169,6 +232,27 @@
 const DAY_TOKENS = ['Mo','Tu','We','Th','Fr','Sa','Su'];
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const HOURS = 24;
+
+const OUTPUT_HINTS = {
+  weekly: 'Paste this into the <b>TimerConf</b> field on the plug\'s web UI, and set <b>TimerMode</b> to <b>Weekly</b> or <b>WeeklySingle</b>.',
+  daily: 'Paste this into the <b>TimerConf</b> field on the plug\'s web UI, and set <b>TimerMode</b> to <b>Daily</b> or <b>DailySingle</b>.',
+  duration: 'Paste this into the <b>TimerConf</b> field on the plug\'s web UI, and set <b>TimerMode</b> to <b>Duration</b>.'
+};
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    document.getElementById('outputHint').innerHTML = OUTPUT_HINTS[tab.dataset.tab];
+  });
+});
+
+function setOutput(str){
+  document.getElementById('output').value = str;
+  document.getElementById('copyStatus').textContent = '';
+}
 
 const gridEl = document.getElementById('grid');
 const state = Array.from({length:7}, () => Array(HOURS).fill(false));
@@ -266,7 +350,25 @@ function generateSchedule(){
 }
 
 document.getElementById('generateBtn').addEventListener('click', () => {
-  document.getElementById('output').value = generateSchedule();
+  setOutput(generateSchedule());
+});
+
+function formatTimeInput(value, fallback){
+  // <input type=time step=1> gives "HH:MM" or "HH:MM:SS" depending on browser support
+  if (!value) return fallback;
+  return value.length === 5 ? value + ':00' : value;
+}
+
+document.getElementById('dailyGenerateBtn').addEventListener('click', () => {
+  const start = formatTimeInput(document.getElementById('dailyStart').value, '00:00:00');
+  const end = formatTimeInput(document.getElementById('dailyEnd').value, '00:00:00');
+  setOutput(start + '-' + end);
+});
+
+document.getElementById('durationGenerateBtn').addEventListener('click', () => {
+  const on = formatTimeInput(document.getElementById('durationOn').value, '00:00:00');
+  const off = formatTimeInput(document.getElementById('durationOff').value, '00:00:00');
+  setOutput(on + '/' + off);
 });
 
 document.getElementById('copyBtn').addEventListener('click', async () => {
@@ -283,34 +385,6 @@ document.getElementById('copyBtn').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('sendBtn').addEventListener('click', async () => {
-  const ip = document.getElementById('deviceIp').value.trim();
-  const value = document.getElementById('output').value;
-  const status = document.getElementById('sendStatus');
-  if (!ip){
-    status.textContent = 'Enter the device IP first.';
-    status.className = 'status err';
-    return;
-  }
-  if (!value){
-    status.textContent = 'Generate a schedule string first.';
-    status.className = 'status err';
-    return;
-  }
-  status.textContent = 'Sending...';
-  status.className = 'status';
-  try {
-    await fetch('http://' + ip + '/text/weekly_schedule_text?value=' + encodeURIComponent(value), {
-      method: 'POST',
-      mode: 'no-cors'
-    });
-    status.textContent = 'Request sent (browser can\'t confirm success cross-origin — check the plug\'s WeeklySchedule field to verify).';
-    status.className = 'status ok';
-  } catch (err) {
-    status.textContent = 'Request failed: ' + err.message + '. Use copy/paste instead.';
-    status.className = 'status err';
-  }
-});
 </script>
 </body>
 </html>
