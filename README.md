@@ -1,4 +1,4 @@
-# BrAiNPlug (Beta-Status, use with care!)   **🔗 [Connect my BrAiNPlug](https://braineebug.github.io/BrAiNPlug/ble-control.html)**  
+# BrAiNPlug (Beta-Status, use with care!)   **🔗 [BrAiNPlug-Controller](https://braineebug.github.io/BrAiNPlug/ble-control.html)**  
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-compatible-blue.svg)](https://esphome.io)
 [![Platform](https://img.shields.io/badge/platform-ESP8266%20%2F%20ESP32-orange.svg)](https://www.espressif.com/)
