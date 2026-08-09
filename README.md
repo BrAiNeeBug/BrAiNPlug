@@ -1,4 +1,4 @@
-# BrAiNPlug (Beta-Status, use with care!)
+# BrAiNPlug (Beta-Status, use with care!)   **🔗 [Connect my BrAiNPlug](https://braineebug.github.io/BrAiNPlug/ble-control.html)**  
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-compatible-blue.svg)](https://esphome.io)
 [![Platform](https://img.shields.io/badge/platform-ESP8266%20%2F%20ESP32-orange.svg)](https://www.espressif.com/)
@@ -10,7 +10,7 @@ BrAiNPlug adds advanced timer handling, power recovery behavior, persistent runt
 
 The firmware is designed to work with Home Assistant through ESPHome and provides a local web interface.
 
-**🔗 [Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/wsb.html)**  **🔗 [Connect my BrAiNPlug](https://braineebug.github.io/BrAiNPlug/ble-control.html)**  
+**🔗 [Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/wsb.html)**
 Paint your weekly ON/OFF schedule on a grid and generate the required `TimerConf` string.
 
 ---
