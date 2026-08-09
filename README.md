@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/platform-ESP8266%20%2F%20ESP32-orange.svg)](https://www.espressif.com/)
 [![License](https://img.shields.io/badge/license-BrAiNPub_OSO_FFA-green.svg)](https://bk-net.tk)
 
-ESPHome based smart plug firmware for **ESP8266 / ESP8285 and ESP32**.
+ESPHome based smart plug firmware for **ESP8266 / ESP8285 and ESP32**. [BrAiNPlug-Dashboard](https://braineebug.github.io/BrAiNPlug/ble-control.html)
 
 BrAiNPlug adds advanced timer handling, power recovery behavior, persistent runtime tracking and optional power monitoring to compatible smart plugs.
 
