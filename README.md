@@ -10,7 +10,7 @@ BrAiNPlug adds advanced timer handling, power recovery behavior, persistent runt
 
 The firmware is designed to work with Home Assistant through ESPHome and provides a local web interface.
 
-**🔗 [Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/wsb.html)**  
+**🔗 [Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/wsb.html)**  **🔗 [Connect my BrAiNPlug](https://braineebug.github.io/BrAiNPlug/ble-control.html)**  
 Paint your weekly ON/OFF schedule on a grid and generate the required `TimerConf` string.
 
 ---
