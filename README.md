@@ -4,7 +4,7 @@
 [![Platform](https://img.shields.io/badge/platform-ESP8266%20%2F%20ESP32-orange.svg)](https://www.espressif.com/)
 [![License](https://img.shields.io/badge/license-BrAiNPub_OSO_FFA-green.svg)](https://bk-net.tk)
 
-ESPHome based smart plug firmware for **ESP8266 / ESP8285 and ESP32**. [BrAiNPlug-Dashboard](https://braineebug.github.io/BrAiNPlug/ble-control.html)
+ESPHome based smart plug firmware for **ESP8266 / ESP8285 and ESP32**.
 
 BrAiNPlug adds advanced timer handling, power recovery behavior, persistent runtime tracking and optional power monitoring to compatible smart plugs.
 
@@ -12,6 +12,9 @@ The firmware is designed to work with Home Assistant through ESPHome and provide
 
 **🔗 [Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/wsb.html)**
 Paint your weekly ON/OFF schedule on a grid and generate the required `TimerConf` string.
+
+**🔗 [BrAiNPlug-Dashboard](https://braineebug.github.io/BrAiNPlug/ble-control.html)**
+Connect your Plug via Bluetooth, no App needed (THIS IS ON DEV DO NOT USE! (SECURITY)
 
 ---
 
