@@ -354,6 +354,7 @@ async function connect(){
     }
     await subscribeAll();
     await refreshAll();
+	startPowerPolling();
     statusText.textContent = device.name || 'BrAiNPlug';
     setConnectedUI(true);
   } catch (err) {
@@ -364,11 +365,13 @@ async function connect(){
 }
 
 function onDisconnected(){
+  stopPowerPolling();
   chars = {};
   setConnectedUI(false);
 }
 
 async function disconnect(){
+  stopPowerPolling();
   if (device && device.gatt.connected) device.gatt.disconnect();
   setConnectedUI(false);
 }
@@ -382,6 +385,30 @@ async function subscribeAll(){
   await chars.timermode.startNotifications();
   chars.power.addEventListener('characteristicvaluechanged', e => updatePower(e.target.value.getFloat32(0, true)));
   await chars.power.startNotifications();
+}
+
+let powerPollTimer = null;
+
+function startPowerPolling(){
+  stopPowerPolling();
+
+  powerPollTimer = setInterval(async () => {
+    if (!device || !device.gatt || !device.gatt.connected || !chars.power) return;
+
+    try {
+      const value = await chars.power.readValue();
+      updatePower(value.getFloat32(0, true));
+    } catch (err) {
+      console.warn('Power read failed:', err);
+    }
+  }, 1000);
+}
+
+function stopPowerPolling(){
+  if (powerPollTimer){
+    clearInterval(powerPollTimer);
+    powerPollTimer = null;
+  }
 }
 
 async function refreshAll(){
