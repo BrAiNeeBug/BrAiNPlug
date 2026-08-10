@@ -11,7 +11,7 @@ substitutions:
   ble_pin: !secret ble_pin
 
 esphome:
-  comment: BrAiN_Plug_1.5.1_ESP32
+  comment: BrAiN_Plug_1.5.2_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -151,6 +151,8 @@ select:
             else if (x == "Weekly") id(timer_mode) = 3;
             else if (x == "WeeklySingle") id(timer_mode) = 4;
             else if (x == "Duration") id(timer_mode) = 5;
+        - ble_server.characteristic.notify:
+            id: ble_timermode_char
     icon: "mdi:timer-cog"
     entity_category: config
     web_server:
@@ -169,6 +171,10 @@ text:
     max_length: 255
     icon: "mdi:calendar-clock"
     entity_category: config
+    on_value:
+      then:
+        - ble_server.characteristic.notify:
+            id: ble_timerconf_char
     web_server:
       sorting_weight: 4
 web_server:
@@ -187,8 +193,9 @@ web_server:
 # given ESP32 device doesn't include that package, remove that characteristic block.
 esp32_ble:
 esp32_ble_server:
-  manufacturer: "BrAiNee"
-  model: "BrAiNPlug"
+  manufacturer: "n/a"
+  model: "n/a"
+  firmware_version: "n/a"
   on_connect:
     - lambda: |-
         id(ble_authed) = false;
@@ -202,21 +209,18 @@ esp32_ble_server:
       characteristics:
         - id: ble_nonce_char
           uuid: 61dd1e94-be40-4e87-a958-471fbe096b3e
-          description: "Auth nonce (read this first, HMAC it with the PIN)"
           read: true
           notify: true
           value:
             data: !lambda 'return id(ble_nonce);'
         - id: ble_auth_char
           uuid: bff96ad9-2846-45e8-9912-3916a6ddf141
-          description: "Auth status (1 = unlocked)"
           read: true
           notify: true
           value:
             data: !lambda 'return std::vector<uint8_t>{ (uint8_t) (id(ble_authed) ? 1 : 0) };'
         - id: ble_response_char
           uuid: 8f439555-8033-41ef-af6d-c340b4c9a7de
-          description: "Auth response (write HMAC-SHA256(PIN, nonce) here)"
           write: true
           on_write:
             then:
@@ -238,12 +242,13 @@ esp32_ble_server:
                   id: ble_nonce_char
         - id: ble_relay_char
           uuid: b2fbcf01-888c-4dbd-a0ca-9c59855115a6
-          description: "Relay (0/1)"
           read: true
           write: true
           notify: true
           value:
-            data: !lambda 'return std::vector<uint8_t>{ (uint8_t) (id(relay).state ? 1 : 0) };'
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{0xFF};
+              return std::vector<uint8_t>{ (uint8_t) (id(relay).state ? 1 : 0) };
           on_write:
             then:
               - if:
@@ -261,12 +266,13 @@ esp32_ble_server:
                     - lambda: 'ESP_LOGW("ble_auth", "Relay write rejected - not authenticated");'
         - id: ble_childlock_char
           uuid: 9745e8b8-7ffb-44f8-adfa-e986ee933a8f
-          description: "ChildLock (0/1)"
           read: true
           write: true
           notify: true
           value:
-            data: !lambda 'return std::vector<uint8_t>{ (uint8_t) (id(child_lock).state ? 1 : 0) };'
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{0xFF};
+              return std::vector<uint8_t>{ (uint8_t) (id(child_lock).state ? 1 : 0) };
           on_write:
             then:
               - if:
@@ -284,12 +290,12 @@ esp32_ble_server:
                     - lambda: 'ESP_LOGW("ble_auth", "ChildLock write rejected - not authenticated");'
         - id: ble_timermode_char
           uuid: 1bb6e309-c3df-4fd7-88d8-96039201b1db
-          description: "TimerMode (string, e.g. Weekly)"
           read: true
           write: true
           notify: true
           value:
             data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
               std::string s = id(timer_mode_select).current_option();
               return std::vector<uint8_t>(s.begin(), s.end());
           on_write:
@@ -305,12 +311,12 @@ esp32_ble_server:
                     - lambda: 'ESP_LOGW("ble_auth", "TimerMode write rejected - not authenticated");'
         - id: ble_timerconf_char
           uuid: 2bc4d2fc-4a0e-4d00-8bf3-1a25656eb587
-          description: "TimerConf (string)"
           read: true
           write: true
           notify: true
           value:
             data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
               std::string s = id(timer_conf_text).state;
               return std::vector<uint8_t>(s.begin(), s.end());
           on_write:
@@ -326,11 +332,12 @@ esp32_ble_server:
                     - lambda: 'ESP_LOGW("ble_auth", "TimerConf write rejected - not authenticated");'
         - id: ble_power_char
           uuid: 18074a57-a3ba-49a6-a958-d49525bb9434
-          description: "Power (W, float32)"
           read: true
           notify: true
           value:
-            data: !lambda 'return bytebuffer::ByteBuffer::wrap(id(power_sensor).state).get_data();'
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(power_sensor).state).get_data();
 
 time:
   - platform: sntp
@@ -668,8 +675,9 @@ switch:
           if (now.is_valid()) {
             id(last_switch_time) = (int) now.timestamp;
           }
-          global_preferences->sync();
           id(relay).publish_state(true);
+      - ble_server.characteristic.notify:
+          id: ble_relay_char
     on_turn_off:
       - lambda: |-
           id(relay_state) = 0;
@@ -677,8 +685,9 @@ switch:
           if (now.is_valid()) {
             id(last_switch_time) = (int) now.timestamp;
           }
-          global_preferences->sync();
           id(relay).publish_state(false);
+      - ble_server.characteristic.notify:
+          id: ble_relay_char
   - platform: template
     name: "Switch"
     id: relay
@@ -709,6 +718,12 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - ble_server.characteristic.notify:
+          id: ble_childlock_char
+    on_turn_off:
+      - ble_server.characteristic.notify:
+          id: ble_childlock_char
     web_server:
       sorting_weight: 1
 binary_sensor:
