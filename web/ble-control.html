@@ -360,7 +360,7 @@ async function connect(){
   } catch (err) {
     statusText.textContent = 'Connection failed: ' + err.message;
     statusDot.classList.add('err');
-    setTimeout(() => statusDot.classList.remove('err'), 2500);
+    setTimeout(() => statusDot.classList.remove('err'), 30000);
   }
 }
 
