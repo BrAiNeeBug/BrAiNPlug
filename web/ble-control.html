@@ -3,16 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>BrAiNPlug — Bluetooth Control</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#14171a">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="BrAiNPlug">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<link rel="icon" href="icon-192.png" sizes="192x192">
-<link rel="icon" href="icon-512.png" sizes="512x512">
+<title>BrAiNPlug — BLE-Control</title>
 <style>
   :root{
     --bg: #14171a;
@@ -166,7 +157,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Bluetooth Control</h1>
+  <h1>BrAiNPlug — BLE-Control (0.0.7)</h1>
   <p class="subtitle">Controls a BrAiNPlug ESP32 (e.g. Nous A8T) directly over BLE via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> — no app needed. Works in <b>Chrome/Edge on desktop and Android</b> only; iOS Safari and Firefox don't support this API at all. Page must be served over <b>HTTPS</b> (GitHub Pages is fine) — it won't work opened as a local file.</p>
 
   <div class="panel">
@@ -181,7 +172,7 @@
       <button id="disconnectBtn" disabled>Disconnect</button>
     </div>
     <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
-    <p class="hint">Enter your Plug-PIN and Connect</p>
+    <p class="hint">The PIN itself is never sent over the air — the browser computes an HMAC-SHA256 challenge/response locally and only the result goes to the plug. All status reads and writes are locked until that challenge succeeds — an unauthenticated client (e.g. a generic BLE scanner) sees empty/placeholder values.</p>
   </div>
 
   <div class="panel">
@@ -397,7 +388,7 @@ async function refreshAll(){
   updateRelay((await chars.relay.readValue()).getUint8(0));
   updateChildlock((await chars.childlock.readValue()).getUint8(0));
   updateTimerMode(dec.decode(await chars.timermode.readValue()));
-  try { updatePower((await chars.power.readValue()).getFloat32(0, true)); } catch(e) {}
+  updatePower((await chars.power.readValue()).getFloat32(0, true));
 }
 
 function updateRelay(v){
@@ -574,13 +565,6 @@ document.getElementById('durationGenerateBtn').addEventListener('click', () => {
   const off = formatTimeInput(document.getElementById('durationOff').value, '00:00:00');
   setOutput(on + '/' + off);
 });
-
-/* --- PWA install --- */
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
-}
 </script>
 </body>
 </html>
