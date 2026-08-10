@@ -1,1 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>BrAiNPlug — Bluetooth Control</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14171a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BrAiNPlug">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png" sizes="192x192">
+<link rel="icon" href="icon-512.png" sizes="512x512">
+<style>
+  :root{
+    --bg: #14171a;
+    --panel: #1b2126;
+    --panel2: #20272d;
+    --border: #2a3138;
+    --text: #e6e9ec;
+    --muted: #838d97;
+    --accent: #ff8a3d;
+    --ok: #4ade80;
+    --err: #f87171;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:24px;
+    background:var(--bg); color:var(--text);
+    font-family:var(--sans);
+    display:flex; justify-content:center;
+  }
+  .wrap{ width:100%; max-width:720px; }
+  h1{ font-size:19px; font-weight:700; letter-spacing:0.2px; margin:0 0 2px 0; }
+  .subtitle{ color:var(--muted); font-size:13px; margin:0 0 20px 0; line-height:1.5; }
+  .panel{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:10px; padding:16px; margin-bottom:16px;
+  }
+  .panel-title{
+    font-size:11px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--muted); margin:0 0 12px 0; font-weight:600;
+  }
+  .hint{ font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; }
+  .row-actions{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
 
+  button{
+    font-family:var(--sans); font-size:13px; font-weight:600;
+    border-radius:7px; border:1px solid var(--border);
+    padding:8px 14px; cursor:pointer; background:var(--panel2); color:var(--text);
+  }
+  button:hover:not(:disabled){ border-color:#3a434c; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#1a1204; }
+  button.primary:hover:not(:disabled){ filter:brightness(1.08); }
+  button:active:not(:disabled){ transform: translateY(1px); }
+  button:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  textarea, input[type=text]{
+    width:100%; font-family:var(--mono); font-size:12.5px;
+    background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px; padding:10px; resize:vertical;
+  }
+
+  .status-line{ display:flex; align-items:center; gap:8px; font-size:13px; }
+  .dot{ width:9px; height:9px; border-radius:50%; background:var(--muted); flex:none; }
+  .dot.connected{ background:var(--ok); box-shadow:0 0 6px 0 rgba(74,222,128,0.6); }
+  .dot.err{ background:var(--err); }
+
+  .status-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;
+  }
+  .status-grid.wide{ grid-template-columns:1fr; }
+  .stat{
+    background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+    padding:10px 12px;
+  }
+  .stat-label{ font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; }
+  .stat-value{ font-size:18px; font-weight:700; margin-top:4px; font-family:var(--mono); }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .toggle-label{ font-size:13px; font-weight:600; }
+  .toggle-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .switch{
+    position:relative; width:44px; height:24px; flex:none;
+    background:var(--panel2); border:1px solid var(--border); border-radius:999px;
+    cursor:pointer; transition: background 120ms;
+  }
+  .switch.on{ background:var(--accent); border-color:var(--accent); }
+  .switch:disabled, .switch.disabled{ opacity:0.4; cursor:not-allowed; }
+  .switch .knob{
+    position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+    background:var(--text); transition: transform 120ms;
+  }
+  .switch.on .knob{ transform: translateX(20px); }
+
+  /* --- tabs (schedule builder, same as wsb.html) --- */
+  .tabs{ display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+  .tab{
+    font-family:var(--sans); font-size:12.5px; font-weight:600; color:var(--muted);
+    background:none; border:none; border-bottom:2px solid transparent;
+    padding:8px 4px; margin-bottom:-1px; cursor:pointer; border-radius:0;
+  }
+  .tab:hover{ color:var(--text); border-color:transparent; }
+  .tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .grid-scroll{ overflow-x:auto; }
+  .grid-outer{
+    display:grid; grid-template-columns: 34px repeat(7, 1fr);
+    min-width:480px; user-select:none; -webkit-user-select:none; touch-action:none;
+  }
+  .day-label{ font-size:11px; color:var(--muted); text-align:center; padding-bottom:6px; font-weight:600; }
+  .hour-label{
+    font-size:10px; color:var(--muted); font-family:var(--mono);
+    text-align:right; padding-right:6px; line-height:16px; height:16px;
+  }
+  .cell{ height:16px; border:1px solid var(--border); background: var(--panel2); margin:-0.5px; cursor:pointer; transition: background 60ms linear; }
+  .cell.active{ background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px 0 rgba(255,138,61,0.55); }
+  .cell:hover:not(.active){ background: #2c343b; }
+
+  .time-row{ display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+  .time-field label{ display:block; font-size:11px; color:var(--muted); margin-bottom:6px; }
+  input[type=time]{
+    font-family:var(--mono); font-size:13px; background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px; padding:8px 10px; color-scheme: dark;
+  }
+
+  .status{ font-size:12px; margin-top:8px; min-height:16px; }
+  .status.ok{ color:var(--ok); }
+  .status.err{ color:var(--err); }
+
+  @media (max-width: 480px){
+    body{ padding:12px; }
+    h1{ font-size:17px; }
+    .subtitle{ font-size:12.5px; }
+    .panel{ padding:12px; border-radius:9px; }
+    /* Connect-Zeile: PIN-Feld + Buttons stapeln statt quetschen */
+    .row-actions{ flex-direction:column; align-items:stretch; }
+    .row-actions button{ width:100%; padding:12px 14px; font-size:14px; }
+    #pinInput{ max-width:none !important; width:100%; padding:12px; font-size:14px; }
+    /* größere Toggle-Switches für Finger statt Mauszeiger */
+    .switch{ width:50px; height:30px; }
+    .switch .knob{ width:24px; height:24px; }
+    .switch.on .knob{ transform: translateX(20px); }
+    .status-grid{ grid-template-columns:1fr 1fr; gap:8px; }
+    .stat{ padding:8px 10px; }
+    .stat-value{ font-size:16px; }
+    /* Tabs: nicht abschneiden, kleiner Abstand */
+    .tabs{ gap:2px; }
+    .tab{ font-size:12px; padding:8px 6px; }
+    /* Grid-Zellen größer für Touch, horizontales Wischen bleibt über grid-scroll */
+    .cell{ height:22px; }
+    .hour-label{ line-height:22px; height:22px; }
+    .grid-outer{ min-width:560px; }
+    /* Zeit-Eingaben untereinander statt nebeneinander gequetscht */
+    .time-row{ flex-direction:column; align-items:stretch; gap:10px; }
+    .time-row button{ width:100%; padding:12px; }
+    input[type=time]{ width:100%; padding:10px; font-size:14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BrAiNPlug — Bluetooth Control</h1>
+  <p class="subtitle">Controls a BrAiNPlug ESP32 (e.g. Nous A8T) directly over BLE via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> — no app needed. Works in <b>Chrome/Edge on desktop and Android</b> only; iOS Safari and Firefox don't support this API at all. Page must be served over <b>HTTPS</b> (GitHub Pages is fine) — it won't work opened as a local file.</p>
+
+  <div class="panel">
+    <p class="panel-title">Connection</p>
+    <div class="status-line">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">Not connected</span>
+    </div>
+    <div class="row-actions">
+      <input type="text" id="pinInput" placeholder="PIN" style="max-width:120px;" autocomplete="off">
+      <button id="connectBtn" class="primary">Connect</button>
+      <button id="disconnectBtn" disabled>Disconnect</button>
+    </div>
+    <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
+    <p class="hint">The PIN itself is never sent over the air — the browser computes an HMAC-SHA256 challenge/response locally and only the result goes to the plug. All status reads and writes are locked until that challenge succeeds — an unauthenticated client (e.g. a generic BLE scanner) sees empty/placeholder values.</p>
+    <p class="hint" id="installHint" style="display:none;">Add this page to your home screen for an app-like icon: <button id="installBtn" style="margin-left:6px; padding:4px 10px;">Install</button></p>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">Plug status</p>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Relay</div>
+        <div class="toggle-sub" id="relaySub">unknown</div>
+      </div>
+      <div class="switch disabled" id="relaySwitch"><div class="knob"></div></div>
+    </div>
+    <div class="toggle-row" style="margin-top:14px;">
+      <div>
+        <div class="toggle-label">ChildLock</div>
+        <div class="toggle-sub">blocks button + soft switching while on</div>
+      </div>
+      <div class="switch disabled" id="childlockSwitch"><div class="knob"></div></div>
+    </div>
+    <div class="status-grid">
+      <div class="stat">
+        <div class="stat-label">Power</div>
+        <div class="stat-value" id="powerValue">–</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">TimerMode</div>
+        <div class="stat-value" id="timerModeValue" style="font-size:14px;">–</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title">Timer / schedule</p>
+    <div class="tabs">
+      <button class="tab active" data-tab="weekly">Weekly</button>
+      <button class="tab" data-tab="daily">Daily</button>
+      <button class="tab" data-tab="duration">Duration</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-weekly">
+      <p class="hint" style="margin-top:0; margin-bottom:12px;">Click or drag across the grid to paint when the plug should be on. Each column is one weekday, each row is one hour.</p>
+      <div class="grid-scroll"><div class="grid-outer" id="grid"></div></div>
+      <div class="row-actions">
+        <button id="clearBtn">Clear grid</button>
+        <button id="generateBtn">Build string</button>
+      </div>
+      <div class="row-actions">
+        <button id="setWeeklyBtn" class="primary" disabled>Set as Weekly</button>
+        <button id="setWeeklySingleBtn" class="primary" disabled>Set as WeeklySingle</button>
+      </div>
+      <p class="hint">Note: only paints ranges within a single day. For a range crossing midnight, build first, then edit the string below by hand.</p>
+    </div>
+
+    <div class="tab-panel" id="tab-daily">
+      <div class="time-row">
+        <div class="time-field"><label for="dailyStart">ON at</label><input type="time" id="dailyStart" step="1" value="08:00:00"></div>
+        <div class="time-field"><label for="dailyEnd">OFF at</label><input type="time" id="dailyEnd" step="1" value="18:00:00"></div>
+        <button id="dailyGenerateBtn">Build string</button>
+      </div>
+      <div class="row-actions">
+        <button id="setDailyBtn" class="primary" disabled>Set as Daily</button>
+        <button id="setDailySingleBtn" class="primary" disabled>Set as DailySingle</button>
+      </div>
+      <p class="hint"><b>Daily</b> keeps forcing the state the whole window (survives reboot); <b>DailySingle</b> only fires once at each time. Doesn't have to be same-day; e.g. 22:00:00-06:00:00 crosses midnight fine.</p>
+    </div>
+
+    <div class="tab-panel" id="tab-duration">
+      <div class="time-row">
+        <div class="time-field"><label for="durationOn">ON for</label><input type="time" id="durationOn" step="1" value="00:00:10"></div>
+        <div class="time-field"><label for="durationOff">OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05"></div>
+        <button id="durationGenerateBtn">Build string</button>
+      </div>
+      <div class="row-actions">
+        <button id="setDurationBtn" class="primary" disabled>Set as Duration</button>
+      </div>
+      <p class="hint">The plug repeats this ON/OFF cycle continuously. Not a clock time — a duration (HH:MM:SS each).</p>
+    </div>
+
+    <p class="panel-title" style="margin-top:16px;">TimerConf string</p>
+    <textarea id="output" spellcheck="false" rows="2" placeholder="Build a string above, or type/paste one directly."></textarea>
+    <p class="status" id="writeStatus"></p>
+    <div class="row-actions">
+      <button id="timerOffBtn" disabled>Turn timer off</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SERVICE_UUID = 'a36c6568-2877-466d-ad19-bdbf301199a8';
+const CHAR_UUIDS = {
+  nonce:     '61dd1e94-be40-4e87-a958-471fbe096b3e',
+  response:  '8f439555-8033-41ef-af6d-c340b4c9a7de',
+  auth:      'bff96ad9-2846-45e8-9912-3916a6ddf141',
+  relay:     'b2fbcf01-888c-4dbd-a0ca-9c59855115a6',
+  childlock: '9745e8b8-7ffb-44f8-adfa-e986ee933a8f',
+  timermode: '1bb6e309-c3df-4fd7-88d8-96039201b1db',
+  timerconf: '2bc4d2fc-4a0e-4d00-8bf3-1a25656eb587',
+  power:     '18074a57-a3ba-49a6-a958-d49525bb9434',
+};
+
+async function hmacSha256(keyStr, msgBytes){
+  const keyData = enc.encode(keyStr);
+  const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, msgBytes);
+  return new Uint8Array(sig);
+}
+
+let device = null, gattServer = null, chars = {};
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+const connectBtn = document.getElementById('connectBtn');
+const disconnectBtn = document.getElementById('disconnectBtn');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const relaySwitch = document.getElementById('relaySwitch');
+const relaySub = document.getElementById('relaySub');
+const childlockSwitch = document.getElementById('childlockSwitch');
+const powerValue = document.getElementById('powerValue');
+const timerModeValue = document.getElementById('timerModeValue');
+const timerOffBtn = document.getElementById('timerOffBtn');
+const writeStatus = document.getElementById('writeStatus');
+const setBtns = ['setWeeklyBtn','setWeeklySingleBtn','setDailyBtn','setDailySingleBtn','setDurationBtn'].map(id => document.getElementById(id));
+
+if (!navigator.bluetooth) {
+  document.getElementById('unsupportedHint').style.display = 'block';
+  connectBtn.disabled = true;
+}
+
+function setConnectedUI(connected){
+  statusDot.classList.toggle('connected', connected);
+  connectBtn.disabled = connected;
+  disconnectBtn.disabled = !connected;
+  relaySwitch.classList.toggle('disabled', !connected);
+  childlockSwitch.classList.toggle('disabled', !connected);
+  setBtns.forEach(b => b.disabled = !connected);
+  timerOffBtn.disabled = !connected;
+  if (!connected){
+    statusText.textContent = 'Not connected';
+    relaySub.textContent = 'unknown';
+    powerValue.textContent = '–';
+    timerModeValue.textContent = '–';
+    relaySwitch.classList.remove('on');
+    childlockSwitch.classList.remove('on');
+  }
+}
+
+function showWriteStatus(msg, ok){
+  writeStatus.textContent = msg;
+  writeStatus.className = 'status ' + (ok ? 'ok' : 'err');
+}
+
+async function connect(){
+  const pin = document.getElementById('pinInput').value;
+  if (!pin){
+    statusText.textContent = 'Enter the PIN first.';
+    return;
+  }
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE_UUID] }],
+      optionalServices: [SERVICE_UUID]
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    statusText.textContent = 'Connecting…';
+    gattServer = await device.gatt.connect();
+    const service = await gattServer.getPrimaryService(SERVICE_UUID);
+    for (const [key, uuid] of Object.entries(CHAR_UUIDS)){
+      chars[key] = await service.getCharacteristic(uuid);
+    }
+    const nonceVal = await chars.nonce.readValue();
+    const nonceBytes = new Uint8Array(nonceVal.buffer, nonceVal.byteOffset, nonceVal.byteLength);
+    const response = await hmacSha256(pin, nonceBytes);
+    await chars.response.writeValue(response);
+    const authResult = await chars.auth.readValue();
+    if (authResult.getUint8(0) !== 1){
+      statusText.textContent = 'Wrong PIN — rejected by the plug.';
+      device.gatt.disconnect();
+      return;
+    }
+    await subscribeAll();
+    await refreshAll();
+    statusText.textContent = device.name || 'BrAiNPlug';
+    setConnectedUI(true);
+  } catch (err) {
+    statusText.textContent = 'Connection failed: ' + err.message;
+    statusDot.classList.add('err');
+    setTimeout(() => statusDot.classList.remove('err'), 2500);
+  }
+}
+
+function onDisconnected(){
+  chars = {};
+  setConnectedUI(false);
+}
+
+async function disconnect(){
+  if (device && device.gatt.connected) device.gatt.disconnect();
+  setConnectedUI(false);
+}
+
+async function subscribeAll(){
+  chars.relay.addEventListener('characteristicvaluechanged', e => updateRelay(e.target.value.getUint8(0)));
+  await chars.relay.startNotifications();
+  chars.childlock.addEventListener('characteristicvaluechanged', e => updateChildlock(e.target.value.getUint8(0)));
+  await chars.childlock.startNotifications();
+  chars.timermode.addEventListener('characteristicvaluechanged', e => updateTimerMode(dec.decode(e.target.value)));
+  await chars.timermode.startNotifications();
+  chars.power.addEventListener('characteristicvaluechanged', e => updatePower(e.target.value.getFloat32(0, true)));
+  await chars.power.startNotifications();
+}
+
+async function refreshAll(){
+  updateRelay((await chars.relay.readValue()).getUint8(0));
+  updateChildlock((await chars.childlock.readValue()).getUint8(0));
+  updateTimerMode(dec.decode(await chars.timermode.readValue()));
+  try { updatePower((await chars.power.readValue()).getFloat32(0, true)); } catch(e) {}
+}
+
+function updateRelay(v){
+  const on = v === 1;
+  relaySwitch.classList.toggle('on', on);
+  relaySub.textContent = on ? 'ON' : 'OFF';
+}
+function updateChildlock(v){
+  childlockSwitch.classList.toggle('on', v === 1);
+}
+function updateTimerMode(v){
+  timerModeValue.textContent = v || 'OFF';
+}
+function updatePower(v){
+  powerValue.textContent = (Math.round(v * 10) / 10) + ' W';
+}
+
+relaySwitch.addEventListener('click', async () => {
+  if (relaySwitch.classList.contains('disabled')) return;
+  const next = relaySwitch.classList.contains('on') ? 0 : 1;
+  await chars.relay.writeValue(new Uint8Array([next]));
+});
+childlockSwitch.addEventListener('click', async () => {
+  if (childlockSwitch.classList.contains('disabled')) return;
+  const next = childlockSwitch.classList.contains('on') ? 0 : 1;
+  await chars.childlock.writeValue(new Uint8Array([next]));
+});
+
+connectBtn.addEventListener('click', connect);
+disconnectBtn.addEventListener('click', disconnect);
+
+async function setTimer(mode){
+  const value = document.getElementById('output').value.trim();
+  if (!value){
+    showWriteStatus('Build or paste a TimerConf string first.', false);
+    return;
+  }
+  try {
+    await chars.timerconf.writeValue(enc.encode(value));
+    await chars.timermode.writeValue(enc.encode(mode));
+    showWriteStatus('Set TimerMode to ' + mode + ' with that schedule.', true);
+  } catch (err) {
+    showWriteStatus('Write failed: ' + err.message, false);
+  }
+}
+document.getElementById('setWeeklyBtn').addEventListener('click', () => setTimer('Weekly'));
+document.getElementById('setWeeklySingleBtn').addEventListener('click', () => setTimer('WeeklySingle'));
+document.getElementById('setDailyBtn').addEventListener('click', () => setTimer('Daily'));
+document.getElementById('setDailySingleBtn').addEventListener('click', () => setTimer('DailySingle'));
+document.getElementById('setDurationBtn').addEventListener('click', () => setTimer('Duration'));
+
+timerOffBtn.addEventListener('click', async () => {
+  try {
+    await chars.timermode.writeValue(enc.encode('OFF'));
+    showWriteStatus('TimerMode set to OFF.', true);
+  } catch (err) {
+    showWriteStatus('Write failed: ' + err.message, false);
+  }
+});
+
+/* --- tabs --- */
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+/* --- weekly grid (same logic as wsb.html) --- */
+const DAY_TOKENS = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const HOURS = 24;
+const gridEl = document.getElementById('grid');
+const state = Array.from({length:7}, () => Array(HOURS).fill(false));
+
+function buildGrid(){
+  gridEl.innerHTML = '';
+  gridEl.appendChild(document.createElement('div'));
+  DAY_LABELS.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'day-label'; el.textContent = d;
+    gridEl.appendChild(el);
+  });
+  for (let h = 0; h < HOURS; h++){
+    const label = document.createElement('div');
+    label.className = 'hour-label';
+    label.textContent = String(h).padStart(2,'0') + ':00';
+    gridEl.appendChild(label);
+    for (let d = 0; d < 7; d++){
+      const cell = document.createElement('div');
+      cell.className = 'cell'; cell.dataset.day = d; cell.dataset.hour = h;
+      gridEl.appendChild(cell);
+    }
+  }
+}
+buildGrid();
+
+let painting = false, paintValue = true;
+function setCell(cellEl, value){
+  const d = +cellEl.dataset.day, h = +cellEl.dataset.hour;
+  state[d][h] = value;
+  cellEl.classList.toggle('active', value);
+}
+gridEl.addEventListener('pointerdown', e => {
+  const cell = e.target.closest('.cell');
+  if (!cell) return;
+  painting = true;
+  paintValue = !cell.classList.contains('active');
+  setCell(cell, paintValue);
+  gridEl.setPointerCapture(e.pointerId);
+});
+gridEl.addEventListener('pointermove', e => {
+  if (!painting) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const cell = el && el.closest('.cell');
+  if (cell) setCell(cell, paintValue);
+});
+['pointerup','pointercancel'].forEach(evt => gridEl.addEventListener(evt, () => { painting = false; }));
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  for (let d=0; d<7; d++) for (let h=0; h<HOURS; h++) state[d][h] = false;
+  gridEl.querySelectorAll('.cell.active').forEach(c => c.classList.remove('active'));
+});
+
+function generateSchedule(){
+  const runs = [];
+  for (let d=0; d<7; d++){
+    let h = 0;
+    while (h < HOURS){
+      if (state[d][h]){
+        const start = h;
+        while (h < HOURS && state[d][h]) h++;
+        runs.push({day:d, start, end:h});
+      } else { h++; }
+    }
+  }
+  const merged = new Map();
+  runs.forEach(r => {
+    const key = r.start + '-' + r.end;
+    if (!merged.has(key)) merged.set(key, new Set());
+    merged.get(key).add(r.day);
+  });
+  const entries = [];
+  for (const [key, days] of merged.entries()){
+    const [start, end] = key.split('-').map(Number);
+    const onStr = String(start).padStart(2,'0') + '00';
+    const offStr = String(end).padStart(2,'0') + '00';
+    const dayStr = Array.from(days).sort((a,b)=>a-b).map(d => DAY_TOKENS[d]).join('');
+    entries.push(onStr + '-' + offStr + ':' + dayStr);
+  }
+  return entries.join(';');
+}
+
+function setOutput(str){
+  document.getElementById('output').value = str;
+  writeStatus.textContent = '';
+}
+
+document.getElementById('generateBtn').addEventListener('click', () => setOutput(generateSchedule()));
+
+function formatTimeInput(value, fallback){
+  if (!value) return fallback;
+  return value.length === 5 ? value + ':00' : value;
+}
+document.getElementById('dailyGenerateBtn').addEventListener('click', () => {
+  const start = formatTimeInput(document.getElementById('dailyStart').value, '00:00:00');
+  const end = formatTimeInput(document.getElementById('dailyEnd').value, '00:00:00');
+  setOutput(start + '-' + end);
+});
+document.getElementById('durationGenerateBtn').addEventListener('click', () => {
+  const on = formatTimeInput(document.getElementById('durationOn').value, '00:00:00');
+  const off = formatTimeInput(document.getElementById('durationOff').value, '00:00:00');
+  setOutput(on + '/' + off);
+});
+
+/* --- PWA install --- */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  document.getElementById('installHint').style.display = 'block';
+});
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  document.getElementById('installHint').style.display = 'none';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installHint').style.display = 'none';
+});
+
+</script>
+</body>
+</html>
