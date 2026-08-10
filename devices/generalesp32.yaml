@@ -2,12 +2,14 @@ substitutions:
   device_name: esp32general
   friendly_name: esp32general
   esp32_board: esp32dev
+  esp32_variant: esp32
   relay_pin:
     number: GPIO23
     inverted: true
   led_pin: GPIO5
   button_pin: GPIO19
   localdomain: ".local"
+  ble_pin: !secret esp32general__ble_pin
 
 packages:
   base: !include base-brainplug-esp32.yaml

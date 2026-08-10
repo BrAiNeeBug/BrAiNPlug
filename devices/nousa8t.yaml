@@ -2,6 +2,7 @@ substitutions:
   device_name: nousa8t
   friendly_name: nousa8t
   esp32_board: esp32dev
+  esp32_variant: esp32
   relay_pin: GPIO13
   led_pin: GPIO02
   button_pin: GPIO04
@@ -12,6 +13,7 @@ substitutions:
   current_resistor: "0.001271"
   power_multiply: "1.310"
   localdomain: ".local"
+  ble_pin: !secret nousa8t__ble_pin
 
 packages:
   base: !include base-brainplug-esp32.yaml
