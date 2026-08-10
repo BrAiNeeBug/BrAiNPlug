@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>BrAiNPlug — Bluetooth Control</title>
 <style>
   :root{
@@ -123,6 +124,41 @@
   .status{ font-size:12px; margin-top:8px; min-height:16px; }
   .status.ok{ color:var(--ok); }
   .status.err{ color:var(--err); }
+
+  @media (max-width: 480px){
+    body{ padding:12px; }
+    h1{ font-size:17px; }
+    .subtitle{ font-size:12.5px; }
+    .panel{ padding:12px; border-radius:9px; }
+
+    /* Connect-Zeile: PIN-Feld + Buttons stapeln statt quetschen */
+    .row-actions{ flex-direction:column; align-items:stretch; }
+    .row-actions button{ width:100%; padding:12px 14px; font-size:14px; }
+    #pinInput{ max-width:none !important; width:100%; padding:12px; font-size:14px; }
+
+    /* größere Toggle-Switches für Finger statt Mauszeiger */
+    .switch{ width:50px; height:30px; }
+    .switch .knob{ width:24px; height:24px; }
+    .switch.on .knob{ transform: translateX(20px); }
+
+    .status-grid{ grid-template-columns:1fr 1fr; gap:8px; }
+    .stat{ padding:8px 10px; }
+    .stat-value{ font-size:16px; }
+
+    /* Tabs: nicht abschneiden, kleiner Abstand */
+    .tabs{ gap:2px; }
+    .tab{ font-size:12px; padding:8px 6px; }
+
+    /* Grid-Zellen größer für Touch, horizontales Wischen bleibt über grid-scroll */
+    .cell{ height:22px; }
+    .hour-label{ line-height:22px; height:22px; }
+    .grid-outer{ min-width:560px; }
+
+    /* Zeit-Eingaben untereinander statt nebeneinander gequetscht */
+    .time-row{ flex-direction:column; align-items:stretch; gap:10px; }
+    .time-row button{ width:100%; padding:12px; }
+    input[type=time]{ width:100%; padding:10px; font-size:14px; }
+  }
 </style>
 </head>
 <body>
