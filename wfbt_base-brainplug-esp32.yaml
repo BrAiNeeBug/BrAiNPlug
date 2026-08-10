@@ -11,9 +11,11 @@ substitutions:
   ble_pin: !secret ble_pin
 
 esphome:
-  comment: BrAiN_Plug_1.4.1_ESP32
+  comment: BrAiN_Plug_1.5.1_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
+  includes:
+    - ble_auth.h
   on_boot:
     priority: -100
     then:
@@ -64,6 +66,9 @@ globals:
     type: bool
     restore_value: false
     initial_value: "false"
+  - id: ble_nonce
+    type: std::vector<uint8_t>
+    restore_value: false
 
 ota:
   - platform: esphome
@@ -146,8 +151,6 @@ select:
             else if (x == "Weekly") id(timer_mode) = 3;
             else if (x == "WeeklySingle") id(timer_mode) = 4;
             else if (x == "Duration") id(timer_mode) = 5;
-        - ble_server.characteristic.notify:
-            id: ble_timermode_char
     icon: "mdi:timer-cog"
     entity_category: config
     web_server:
@@ -166,10 +169,6 @@ text:
     max_length: 255
     icon: "mdi:calendar-clock"
     entity_category: config
-    on_value:
-      then:
-        - ble_server.characteristic.notify:
-            id: ble_timerconf_char
     web_server:
       sorting_weight: 4
 web_server:
@@ -190,6 +189,10 @@ esp32_ble:
 esp32_ble_server:
   manufacturer: "BrAiNee"
   model: "BrAiNPlug"
+  on_connect:
+    - lambda: |-
+        id(ble_authed) = false;
+        id(ble_nonce) = ble_random_nonce(16);
   on_disconnect:
     - lambda: |-
         id(ble_authed) = false;
@@ -197,27 +200,42 @@ esp32_ble_server:
     - uuid: a36c6568-2877-466d-ad19-bdbf301199a8
       advertise: true
       characteristics:
+        - id: ble_nonce_char
+          uuid: 61dd1e94-be40-4e87-a958-471fbe096b3e
+          description: "Auth nonce (read this first, HMAC it with the PIN)"
+          read: true
+          notify: true
+          value:
+            data: !lambda 'return id(ble_nonce);'
         - id: ble_auth_char
           uuid: bff96ad9-2846-45e8-9912-3916a6ddf141
-          description: "Auth PIN (write to unlock, read/notify reflects status)"
+          description: "Auth status (1 = unlocked)"
           read: true
-          write: true
           notify: true
           value:
             data: !lambda 'return std::vector<uint8_t>{ (uint8_t) (id(ble_authed) ? 1 : 0) };'
+        - id: ble_response_char
+          uuid: 8f439555-8033-41ef-af6d-c340b4c9a7de
+          description: "Auth response (write HMAC-SHA256(PIN, nonce) here)"
+          write: true
           on_write:
             then:
               - lambda: |-
-                  std::string pin(x.begin(), x.end());
-                  if (pin == "${ble_pin}") {
-                    id(ble_authed) = true;
+                  std::vector<uint8_t> response(x.begin(), x.end());
+                  bool ok = ble_hmac_verify("${ble_pin}", id(ble_nonce), response);
+                  id(ble_authed) = ok;
+                  if (ok) {
                     ESP_LOGI("ble_auth", "Client authenticated");
                   } else {
-                    id(ble_authed) = false;
-                    ESP_LOGW("ble_auth", "Wrong BLE PIN");
+                    ESP_LOGW("ble_auth", "BLE auth challenge failed");
                   }
+                  // rotate the nonce regardless of outcome so a captured
+                  // response can never be replayed
+                  id(ble_nonce) = ble_random_nonce(16);
               - ble_server.characteristic.notify:
                   id: ble_auth_char
+              - ble_server.characteristic.notify:
+                  id: ble_nonce_char
         - id: ble_relay_char
           uuid: b2fbcf01-888c-4dbd-a0ca-9c59855115a6
           description: "Relay (0/1)"
@@ -272,7 +290,7 @@ esp32_ble_server:
           notify: true
           value:
             data: !lambda |-
-              std::string s = id(timer_mode_select).state;
+              std::string s = id(timer_mode_select).current_option();
               return std::vector<uint8_t>(s.begin(), s.end());
           on_write:
             then:
@@ -652,8 +670,6 @@ switch:
           }
           global_preferences->sync();
           id(relay).publish_state(true);
-      - ble_server.characteristic.notify:
-          id: ble_relay_char
     on_turn_off:
       - lambda: |-
           id(relay_state) = 0;
@@ -663,8 +679,6 @@ switch:
           }
           global_preferences->sync();
           id(relay).publish_state(false);
-      - ble_server.characteristic.notify:
-          id: ble_relay_char
   - platform: template
     name: "Switch"
     id: relay
@@ -695,12 +709,6 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
-    on_turn_on:
-      - ble_server.characteristic.notify:
-          id: ble_childlock_char
-    on_turn_off:
-      - ble_server.characteristic.notify:
-          id: ble_childlock_char
     web_server:
       sorting_weight: 1
 binary_sensor:
