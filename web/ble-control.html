@@ -581,24 +581,6 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   });
 }
-
-let deferredInstallPrompt = null;
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  deferredInstallPrompt = e;
-  document.getElementById('installHint').style.display = 'block';
-});
-document.getElementById('installBtn').addEventListener('click', async () => {
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  await deferredInstallPrompt.userChoice;
-  deferredInstallPrompt = null;
-  document.getElementById('installHint').style.display = 'none';
-});
-window.addEventListener('appinstalled', () => {
-  document.getElementById('installHint').style.display = 'none';
-});
-
 </script>
 </body>
 </html>
