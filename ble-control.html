@@ -172,7 +172,7 @@
       <button id="disconnectBtn" disabled>Disconnect</button>
     </div>
     <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
-    <p class="hint">The PIN itself is never sent over the air — the browser computes an HMAC-SHA256 challenge/response locally and only the result goes to the plug. Reading the current status doesn't require the PIN.</p>
+    <p class="hint">The PIN itself is never sent over the air — the browser computes an HMAC-SHA256 challenge/response locally and only the result goes to the plug. All status reads and writes are locked until that challenge succeeds — an unauthenticated client (e.g. a generic BLE scanner) sees empty/placeholder values.</p>
   </div>
 
   <div class="panel">
