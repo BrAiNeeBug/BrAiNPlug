@@ -2,7 +2,7 @@
 substitutions:
   device_name: brainplug
   friendly_name: "wfbt_base32_brainplug"
-  schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/wsb.html"
+  schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/web/wsb.html"
   esp32_board: esp32dev
   relay_pin: GPIO0
   led_pin: GPIO0
