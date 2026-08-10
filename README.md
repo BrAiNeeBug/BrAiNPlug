@@ -53,7 +53,7 @@ BrAiNPlug/
 ├── base-brainplug.yaml
 ├── base-brainplug-esp32.yaml
 ├── pwrmeter-brainplug.yaml
-├── brainplug-configs.nfo
+├── devices/brainplug-configs.nfo
 └── web/wsb.html
 ```
 
