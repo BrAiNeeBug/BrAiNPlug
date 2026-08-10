@@ -14,7 +14,7 @@ The firmware is designed to work with Home Assistant through ESPHome and provide
 Paint your weekly ON/OFF schedule on a grid.
 
 **🔗 [BrAiNPlug-Dashboard](https://braineebug.github.io/BrAiNPlug/ble-control.html)**
-Connect your Plug via Bluetooth. (THIS IS ON DEV DO NOT USE! (SECURITY)
+Connect your Plug via Bluetooth. (THIS 1.5.x+esp32_only!)
 
 ---
 
