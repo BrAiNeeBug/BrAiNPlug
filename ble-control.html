@@ -124,41 +124,6 @@
   .status{ font-size:12px; margin-top:8px; min-height:16px; }
   .status.ok{ color:var(--ok); }
   .status.err{ color:var(--err); }
-
-  @media (max-width: 480px){
-    body{ padding:12px; }
-    h1{ font-size:17px; }
-    .subtitle{ font-size:12.5px; }
-    .panel{ padding:12px; border-radius:9px; }
-
-    /* Connect-Zeile: PIN-Feld + Buttons stapeln statt quetschen */
-    .row-actions{ flex-direction:column; align-items:stretch; }
-    .row-actions button{ width:100%; padding:12px 14px; font-size:14px; }
-    #pinInput{ max-width:none !important; width:100%; padding:12px; font-size:14px; }
-
-    /* größere Toggle-Switches für Finger statt Mauszeiger */
-    .switch{ width:50px; height:30px; }
-    .switch .knob{ width:24px; height:24px; }
-    .switch.on .knob{ transform: translateX(20px); }
-
-    .status-grid{ grid-template-columns:1fr 1fr; gap:8px; }
-    .stat{ padding:8px 10px; }
-    .stat-value{ font-size:16px; }
-
-    /* Tabs: nicht abschneiden, kleiner Abstand */
-    .tabs{ gap:2px; }
-    .tab{ font-size:12px; padding:8px 6px; }
-
-    /* Grid-Zellen größer für Touch, horizontales Wischen bleibt über grid-scroll */
-    .cell{ height:22px; }
-    .hour-label{ line-height:22px; height:22px; }
-    .grid-outer{ min-width:560px; }
-
-    /* Zeit-Eingaben untereinander statt nebeneinander gequetscht */
-    .time-row{ flex-direction:column; align-items:stretch; gap:10px; }
-    .time-row button{ width:100%; padding:12px; }
-    input[type=time]{ width:100%; padding:10px; font-size:14px; }
-  }
 </style>
 </head>
 <body>
@@ -178,7 +143,7 @@
       <button id="disconnectBtn" disabled>Disconnect</button>
     </div>
     <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
-    <p class="hint">Anyone in BLE range can see and connect to this device — the PIN gates writes (relay/timer/childlock) on the plug itself, independent of the browser/OS. Reading the current status doesn't require the PIN.</p>
+    <p class="hint">The PIN itself is never sent over the air — the browser computes an HMAC-SHA256 challenge/response locally and only the result goes to the plug. Reading the current status doesn't require the PIN.</p>
   </div>
 
   <div class="panel">
@@ -265,6 +230,8 @@
 <script>
 const SERVICE_UUID = 'a36c6568-2877-466d-ad19-bdbf301199a8';
 const CHAR_UUIDS = {
+  nonce:     '61dd1e94-be40-4e87-a958-471fbe096b3e',
+  response:  '8f439555-8033-41ef-af6d-c340b4c9a7de',
   auth:      'bff96ad9-2846-45e8-9912-3916a6ddf141',
   relay:     'b2fbcf01-888c-4dbd-a0ca-9c59855115a6',
   childlock: '9745e8b8-7ffb-44f8-adfa-e986ee933a8f',
@@ -272,6 +239,13 @@ const CHAR_UUIDS = {
   timerconf: '2bc4d2fc-4a0e-4d00-8bf3-1a25656eb587',
   power:     '18074a57-a3ba-49a6-a958-d49525bb9434',
 };
+
+async function hmacSha256(keyStr, msgBytes){
+  const keyData = enc.encode(keyStr);
+  const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, msgBytes);
+  return new Uint8Array(sig);
+}
 
 let device = null, gattServer = null, chars = {};
 const enc = new TextEncoder();
@@ -334,7 +308,10 @@ async function connect(){
     for (const [key, uuid] of Object.entries(CHAR_UUIDS)){
       chars[key] = await service.getCharacteristic(uuid);
     }
-    await chars.auth.writeValue(enc.encode(pin));
+    const nonceVal = await chars.nonce.readValue();
+    const nonceBytes = new Uint8Array(nonceVal.buffer, nonceVal.byteOffset, nonceVal.byteLength);
+    const response = await hmacSha256(pin, nonceBytes);
+    await chars.response.writeValue(response);
     const authResult = await chars.auth.readValue();
     if (authResult.getUint8(0) !== 1){
       statusText.textContent = 'Wrong PIN — rejected by the plug.';
