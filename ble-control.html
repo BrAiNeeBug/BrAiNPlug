@@ -199,6 +199,7 @@
       <div class="stat">
         <div class="stat-label">TimerMode</div>
         <div class="stat-value" id="timerModeValue" style="font-size:14px;">–</div>
+        <button id="timerOffBtn" disabled style="margin-top:8px; width:100%; padding:6px;">Set OFF</button>
       </div>
     </div>
   </div>
@@ -289,6 +290,7 @@ const relaySub = document.getElementById('relaySub');
 const childlockSwitch = document.getElementById('childlockSwitch');
 const powerValue = document.getElementById('powerValue');
 const timerModeValue = document.getElementById('timerModeValue');
+const timerOffBtn = document.getElementById('timerOffBtn');
 const writeStatus = document.getElementById('writeStatus');
 const setBtns = ['setWeeklyBtn','setWeeklySingleBtn','setDailyBtn','setDailySingleBtn','setDurationBtn'].map(id => document.getElementById(id));
 
@@ -304,6 +306,7 @@ function setConnectedUI(connected){
   relaySwitch.classList.toggle('disabled', !connected);
   childlockSwitch.classList.toggle('disabled', !connected);
   setBtns.forEach(b => b.disabled = !connected);
+  timerOffBtn.disabled = !connected;
   if (!connected){
     statusText.textContent = 'Not connected';
     relaySub.textContent = 'unknown';
@@ -434,6 +437,15 @@ document.getElementById('setWeeklySingleBtn').addEventListener('click', () => se
 document.getElementById('setDailyBtn').addEventListener('click', () => setTimer('Daily'));
 document.getElementById('setDailySingleBtn').addEventListener('click', () => setTimer('DailySingle'));
 document.getElementById('setDurationBtn').addEventListener('click', () => setTimer('Duration'));
+
+timerOffBtn.addEventListener('click', async () => {
+  try {
+    await chars.timermode.writeValue(enc.encode('OFF'));
+    showWriteStatus('TimerMode set to OFF.', true);
+  } catch (err) {
+    showWriteStatus('Write failed: ' + err.message, false);
+  }
+});
 
 /* --- tabs --- */
 document.querySelectorAll('.tab').forEach(tab => {
