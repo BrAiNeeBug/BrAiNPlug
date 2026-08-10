@@ -3,16 +3,11 @@
 substitutions:
   device_name: brainplug
   friendly_name: "wfbt_base32_brainplug"
-  schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/wsb.html"
-  esp32_board: esp32dev
-  relay_pin: GPIO0
-  led_pin: GPIO0
-  button_pin: GPIO0
+  schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/web/wsb.html"
   localdomain: ".local"
-  ble_pin: !secret ble_pin
 
 esphome:
-  comment: BrAiN_Plug_1.5.3_ESP32
+  comment: BrAiN_Plug_1.5.4_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -38,7 +33,7 @@ preferences:
 
 esp32:
   board: ${esp32_board}
-  variant: esp32
+  variant: ${esp32_variant}
   framework:
     type: esp-idf
 
@@ -70,6 +65,14 @@ globals:
   - id: ble_nonce
     type: std::vector<uint8_t>
     restore_value: false
+  - id: ble_auth_failures
+    type: uint8_t
+    restore_value: false
+    initial_value: "0"
+  - id: ble_auth_lock_until
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
 
 ota:
   - platform: esphome
@@ -193,6 +196,7 @@ web_server:
 # pwrmeter-brainplug.yaml (id: power_sensor) as it is for the Nous A8T - if a
 # given ESP32 device doesn't include that package, remove that characteristic block.
 esp32_ble:
+  connection_timeout: 30s
 esp32_ble_server:
   manufacturer: "n/a"
   model: "n/a"
@@ -226,17 +230,59 @@ esp32_ble_server:
           on_write:
             then:
               - lambda: |-
+                  const uint32_t now = millis();
+
+                  // Auth temporarily locked after failed attempts
+                  if ((int32_t)(now - id(ble_auth_lock_until)) < 0) {
+                    id(ble_authed) = false;
+                    ESP_LOGW("ble_auth", "BLE auth locked - try again later");
+                    return;
+                  }
+
                   std::vector<uint8_t> response(x.begin(), x.end());
                   bool ok = ble_hmac_verify("${ble_pin}", id(ble_nonce), response);
-                  id(ble_authed) = ok;
+
                   if (ok) {
+                    id(ble_authed) = true;
+
+                    // Successful authentication resets the failure counter
+                    id(ble_auth_failures) = 0;
+                    id(ble_auth_lock_until) = 0;
+
                     ESP_LOGI("ble_auth", "Client authenticated");
                   } else {
-                    ESP_LOGW("ble_auth", "BLE auth challenge failed");
+                    id(ble_authed) = false;
+
+                    // Increase failure counter, maximum 10
+                    if (id(ble_auth_failures) < 10)
+                      id(ble_auth_failures)++;
+
+                    // Exponential backoff:
+                    // 1st failure = 2s
+                    // 2nd failure = 4s
+                    // 3rd failure = 8s
+                    // 4th failure = 16s
+                    // 5th failure = 32s
+                    // 6th+        = 60s
+                    uint32_t delay_ms;
+
+                    if (id(ble_auth_failures) >= 6) {
+                      delay_ms = 60000;
+                    } else {
+                      delay_ms = 2000UL << (id(ble_auth_failures) - 1);
+                    }
+
+                    id(ble_auth_lock_until) = now + delay_ms;
+
+                    ESP_LOGW("ble_auth",
+                             "BLE auth failed - locked for %lu seconds",
+                             (unsigned long)(delay_ms / 1000));
                   }
-                  // rotate the nonce regardless of outcome so a captured
-                  // response can never be replayed
+
+                  // Always rotate the nonce so a captured response
+                  // can never be replayed.
                   id(ble_nonce) = ble_random_nonce(16);
+
               - ble_server.characteristic.notify:
                   id: ble_auth_char
               - ble_server.characteristic.notify:
