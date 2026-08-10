@@ -4,9 +4,6 @@ substitutions:
   friendly_name: "base_brainplug"
   schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/web/wsb.html"
   board_type: esp8266
-  relay_pin: GPIO0
-  led_pin: GPIO0
-  button_pin: GPIO0
   localdomain: ".local"
 
 esphome:
