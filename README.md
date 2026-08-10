@@ -10,10 +10,10 @@ BrAiNPlug adds advanced timer handling, power recovery behavior, persistent runt
 
 The firmware is designed to work with Home Assistant through ESPHome and provides a local web interface.
 
-**🔗 [Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/wsb.html)**
+**🔗 [Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/web/wsb.html)**
 Paint your weekly ON/OFF schedule on a grid.
 
-**🔗 [BrAiNPlug-Dashboard](https://braineebug.github.io/BrAiNPlug/ble-control.html)**
+**🔗 [BrAiNPlug-Dashboard](https://braineebug.github.io/BrAiNPlug/web/ble-control.html)**
 Connect your Plug via Bluetooth. (THIS 1.5.x+esp32_only!)
 
 ---
@@ -54,7 +54,7 @@ BrAiNPlug/
 ├── base-brainplug-esp32.yaml
 ├── pwrmeter-brainplug.yaml
 ├── brainplug-configs.nfo
-└── wsb.html
+└── web/wsb.html
 ```
 
 ### `base-brainplug.yaml`
@@ -696,7 +696,7 @@ This allows short ON/OFF cycles that are not possible with the normal daily/week
 
 The easiest way to create a weekly schedule is the:
 
-**[Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/wsb.html)**
+**[Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/web/wsb.html)**
 
 The builder generates a `TimerConf` string suitable for:
 
@@ -986,16 +986,6 @@ base-brainplug.yaml
 base-brainplug-esp32.yaml
 pwrmeter-brainplug.yaml
 ```
-
-Project:
-
-https://github.com/BrAiNeeBug/BrAiNPlug
-
-Weekly Schedule Builder:
-
-https://braineebug.github.io/BrAiNPlug/wsb.html
-
----
 
 # Credits
 
