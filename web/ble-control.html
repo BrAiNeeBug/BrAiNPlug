@@ -157,7 +157,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — BLE-Control (0.0.8)</h1>
+  <h1>BrAiNPlug — BLE-Control (0.0.9)</h1>
   <p class="subtitle">Controls a BrAiNPlug ESP32 (e.g. Nous A8T) directly over BLE via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> — no app needed. Works in <b>Chrome/Edge on desktop and Android</b> only; iOS Safari and Firefox don't support this API at all. Page must be served over <b>HTTPS</b> (GitHub Pages is fine) — it won't work opened as a local file.</p>
 
   <div class="panel">
@@ -436,14 +436,6 @@ async function subscribeAll(){
   await chars.childlock.startNotifications();
   chars.timermode.addEventListener('characteristicvaluechanged', e => updateTimerMode(dec.decode(e.target.value)));
   await chars.timermode.startNotifications();
-  chars.power.addEventListener('characteristicvaluechanged', e => updatePower(e.target.value.getFloat32(0, true)));
-  await chars.power.startNotifications();
-  chars.voltage.addEventListener('characteristicvaluechanged', e => updateVoltage(e.target.value.getFloat32(0, true)));
-  await chars.voltage.startNotifications();
-  chars.current.addEventListener('characteristicvaluechanged', e => updateCurrent(e.target.value.getFloat32(0, true)));
-  await chars.current.startNotifications();
-  chars.energy.addEventListener('characteristicvaluechanged', e => updateEnergy(e.target.value.getFloat32(0, true)));
-  await chars.energy.startNotifications();
 }
 
 let statsPollTimer = null;
