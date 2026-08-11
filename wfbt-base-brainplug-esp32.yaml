@@ -7,7 +7,7 @@ substitutions:
   localdomain: ".local"
 
 esphome:
-  comment: BrAiN_Plug_1.5.4_ESP32
+  comment: BrAiN_Plug_1.5.5_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -27,6 +27,13 @@ esphome:
               if (id(relay_physical).state) id(relay_physical).turn_off();
             }
           }
+      - if:
+          condition:
+            lambda: 'return id(bluetooth_enable).state;'
+          then:
+            - ble.enable:
+            - lambda: 'id(ble_ever_enabled) = true;'
+      - lambda: 'id(booted_flag) = true;'
 
 preferences:
   flash_write_interval: 30s
@@ -69,7 +76,23 @@ globals:
     type: uint8_t
     restore_value: false
     initial_value: "0"
-  - id: ble_auth_lock_until
+  - id: booted_flag
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: ble_ever_enabled
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: ble_auth_busy
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: ble_auth_ok
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: ble_auth_delay_ms
     type: uint32_t
     restore_value: false
     initial_value: "0"
@@ -192,11 +215,12 @@ web_server:
 # --- BLE control (Web Bluetooth) ---
 # Custom GATT service so the plug can be controlled straight from a browser
 # (navigator.bluetooth) without a dedicated app, alongside the existing WiFi API/HA.
-# NOTE: the "power" characteristic assumes this file is packaged together with
-# pwrmeter-brainplug.yaml (id: power_sensor) as it is for the Nous A8T - if a
-# given ESP32 device doesn't include that package, remove that characteristic block.
+# NOTE: the "power", "voltage", "current" and "energy" characteristics assume this file
+# is packaged together with pwrmeter-brainplug.yaml (ids: power_sensor, voltage_sensor,
+# current_sensor, total_energy_display) as it is for the Nous A8T - if a given ESP32
+# device doesn't include that package, remove those four characteristic blocks.
 esp32_ble:
-  connection_timeout: 30s
+  enable_on_boot: false  # BLE stack stays off until the "Bluetooth" switch enables it
 esp32_ble_server:
   manufacturer: "n/a"
   model: "n/a"
@@ -229,64 +253,48 @@ esp32_ble_server:
           write: true
           on_write:
             then:
-              - lambda: |-
-                  const uint32_t now = millis();
+              - if:
+                  condition:
+                    lambda: 'return !id(ble_auth_busy);'
+                  then:
+                    - lambda: 'id(ble_auth_busy) = true;'
+                    - lambda: |-
+                        std::vector<uint8_t> response(x.begin(), x.end());
+                        id(ble_auth_ok) = ble_hmac_verify("${ble_pin}", id(ble_nonce), response);
 
-                  // Auth temporarily locked after failed attempts
-                  if ((int32_t)(now - id(ble_auth_lock_until)) < 0) {
-                    id(ble_authed) = false;
-                    ESP_LOGW("ble_auth", "BLE auth locked - try again later");
-                    return;
-                  }
+                        // Backoff wird IMMER aus dem aktuellen Fail-Stand berechnet -
+                        // egal ob dieser Versuch richtig war. So verrät die
+                        // Antwortzeit nichts über das Ergebnis.
+                        uint8_t projected = id(ble_auth_failures);
+                        if (!id(ble_auth_ok) && projected < 10) projected++;
 
-                  std::vector<uint8_t> response(x.begin(), x.end());
-                  bool ok = ble_hmac_verify("${ble_pin}", id(ble_nonce), response);
+                        if (projected == 0) id(ble_auth_delay_ms) = 150;
+                        else if (projected >= 6) id(ble_auth_delay_ms) = 60000;
+                        else id(ble_auth_delay_ms) = 2000UL << (projected - 1);
 
-                  if (ok) {
-                    id(ble_authed) = true;
+                        id(ble_auth_failures) = projected; // vorläufig, wird bei Erfolg unten resettet
 
-                    // Successful authentication resets the failure counter
-                    id(ble_auth_failures) = 0;
-                    id(ble_auth_lock_until) = 0;
+                    - delay: !lambda 'return id(ble_auth_delay_ms);'
 
-                    ESP_LOGI("ble_auth", "Client authenticated");
-                  } else {
-                    id(ble_authed) = false;
+                    - lambda: |-
+                        // Erst JETZT, nach dem einheitlichen Delay, wird der
+                        // tatsächliche Zustand sichtbar/lesbar geändert.
+                        if (id(ble_auth_ok)) {
+                          id(ble_authed) = true;
+                          id(ble_auth_failures) = 0;
+                          ESP_LOGI("ble_auth", "Client authenticated");
+                        } else {
+                          id(ble_authed) = false;
+                          ESP_LOGW("ble_auth", "BLE auth failed (%u. Fehlversuch)",
+                                   (unsigned)id(ble_auth_failures));
+                        }
+                        id(ble_nonce) = ble_random_nonce(16);
 
-                    // Increase failure counter, maximum 10
-                    if (id(ble_auth_failures) < 10)
-                      id(ble_auth_failures)++;
-
-                    // Exponential backoff:
-                    // 1st failure = 2s
-                    // 2nd failure = 4s
-                    // 3rd failure = 8s
-                    // 4th failure = 16s
-                    // 5th failure = 32s
-                    // 6th+        = 60s
-                    uint32_t delay_ms;
-
-                    if (id(ble_auth_failures) >= 6) {
-                      delay_ms = 60000;
-                    } else {
-                      delay_ms = 2000UL << (id(ble_auth_failures) - 1);
-                    }
-
-                    id(ble_auth_lock_until) = now + delay_ms;
-
-                    ESP_LOGW("ble_auth",
-                             "BLE auth failed - locked for %lu seconds",
-                             (unsigned long)(delay_ms / 1000));
-                  }
-
-                  // Always rotate the nonce so a captured response
-                  // can never be replayed.
-                  id(ble_nonce) = ble_random_nonce(16);
-
-              - ble_server.characteristic.notify:
-                  id: ble_auth_char
-              - ble_server.characteristic.notify:
-                  id: ble_nonce_char
+                    - ble_server.characteristic.notify:
+                        id: ble_auth_char
+                    - ble_server.characteristic.notify:
+                        id: ble_nonce_char
+                    - lambda: 'id(ble_auth_busy) = false;'
         - id: ble_relay_char
           uuid: b2fbcf01-888c-4dbd-a0ca-9c59855115a6
           read: true
@@ -380,11 +388,31 @@ esp32_ble_server:
         - id: ble_power_char
           uuid: 18074a57-a3ba-49a6-a958-d49525bb9434
           read: true
-          notify: true
           value:
             data: !lambda |-
               if (!id(ble_authed)) return std::vector<uint8_t>{};
               return bytebuffer::ByteBuffer::wrap(id(power_sensor).state).get_data();
+        - id: ble_voltage_char
+          uuid: eef5b493-e0b5-4257-b79f-5945b52fc4b4
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(voltage_sensor).state).get_data();
+        - id: ble_current_char
+          uuid: e512c5a0-e726-478f-94ae-e19218f60118
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(current_sensor).state).get_data();
+        - id: ble_energy_char
+          uuid: d3134b34-4635-4d72-9e50-49053be2bc19
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(total_energy_display).state).get_data();
 
 time:
   - platform: sntp
@@ -773,6 +801,32 @@ switch:
           id: ble_childlock_char
     web_server:
       sorting_weight: 1
+  - platform: template
+    name: "Bluetooth"
+    id: bluetooth_enable
+    icon: "mdi:bluetooth"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - if:
+          condition:
+            lambda: 'return id(booted_flag);'
+          then:
+            - if:
+                condition:
+                  lambda: 'return id(ble_ever_enabled);'
+                then:
+                  - lambda: |-
+                      global_preferences->sync();
+                      App.safe_reboot();
+                else:
+                  - lambda: 'id(ble_ever_enabled) = true;'
+                  - ble.enable:
+    on_turn_off:
+      - ble.disable:
+    web_server:
+      sorting_weight: 9
 binary_sensor:
   - platform: gpio
     pin:

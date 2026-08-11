@@ -28,11 +28,13 @@ sensor:
     voltage_divider: ${voltage_divider}
     current_resistor: ${current_resistor}
     voltage:
+      id: voltage_sensor
       name: Voltage(V)
       web_server:
         sorting_weight: 2
       icon: "mdi:sine-wave"
     current:
+      id: current_sensor
       name: Current(A)
       web_server:
         sorting_weight: 3
