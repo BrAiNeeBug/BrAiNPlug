@@ -209,6 +209,10 @@
         <div class="stat-value" id="energyValue">–</div>
       </div>
       <div class="stat">
+        <div class="stat-label">ActualDuration</div>
+        <div class="stat-value" id="actualDurationValue" style="font-size:14px;">–</div>
+      </div>
+      <div class="stat">
         <div class="stat-label">TimerMode</div>
         <div class="stat-value" id="timerModeValue" style="font-size:14px;">–</div>
       </div>
@@ -285,6 +289,7 @@ const CHAR_UUIDS = {
   voltage:   'eef5b493-e0b5-4257-b79f-5945b52fc4b4',
   current:   'e512c5a0-e726-478f-94ae-e19218f60118',
   energy:    'd3134b34-4635-4d72-9e50-49053be2bc19',
+  actualduration: 'f848732a-d062-457c-aa8e-66c1b5e5fa2e',
 };
 
 // Muss >= dem größtmöglichen Backoff-Delay im YAML sein (dort aktuell Cap bei 60s).
@@ -328,6 +333,7 @@ const voltageValue = document.getElementById('voltageValue');
 const currentValue = document.getElementById('currentValue');
 const energyValue = document.getElementById('energyValue');
 const timerModeValue = document.getElementById('timerModeValue');
+const actualDurationValue = document.getElementById('actualDurationValue');
 const timerOffBtn = document.getElementById('timerOffBtn');
 const writeStatus = document.getElementById('writeStatus');
 const setBtns = ['setWeeklyBtn','setWeeklySingleBtn','setDailyBtn','setDailySingleBtn','setDurationBtn'].map(id => document.getElementById(id));
@@ -353,6 +359,7 @@ function setConnectedUI(connected){
     currentValue.textContent = '–';
     energyValue.textContent = '–';
     timerModeValue.textContent = '–';
+    actualDurationValue.textContent = '–';
     relaySwitch.classList.remove('on');
     childlockSwitch.classList.remove('on');
   }
@@ -439,6 +446,7 @@ async function subscribeAll(){
 }
 
 let statsPollTimer = null;
+let actualDurationPollTimer = null;
 
 function startStatsPolling(){
   stopStatsPolling();
@@ -455,6 +463,15 @@ function startStatsPolling(){
       console.warn('Stats read failed:', err);
     }
   }, 1000);
+
+  actualDurationPollTimer = setInterval(async () => {
+    if (!device || !device.gatt || !device.gatt.connected || !chars.actualduration) return;
+    try {
+      updateActualDuration(dec.decode(await chars.actualduration.readValue()));
+    } catch (err) {
+      console.warn('ActualDuration read failed:', err);
+    }
+  }, 5000);
 }
 
 function stopStatsPolling(){
@@ -462,12 +479,17 @@ function stopStatsPolling(){
     clearInterval(statsPollTimer);
     statsPollTimer = null;
   }
+  if (actualDurationPollTimer){
+    clearInterval(actualDurationPollTimer);
+    actualDurationPollTimer = null;
+  }
 }
 
 async function refreshAll(){
   updateRelay((await chars.relay.readValue()).getUint8(0));
   updateChildlock((await chars.childlock.readValue()).getUint8(0));
   updateTimerMode(dec.decode(await chars.timermode.readValue()));
+  updateActualDuration(dec.decode(await chars.actualduration.readValue()));
   updatePower((await chars.power.readValue()).getFloat32(0, true));
   updateVoltage((await chars.voltage.readValue()).getFloat32(0, true));
   updateCurrent((await chars.current.readValue()).getFloat32(0, true));
@@ -484,6 +506,9 @@ function updateChildlock(v){
 }
 function updateTimerMode(v){
   timerModeValue.textContent = v || 'OFF';
+}
+function updateActualDuration(v){
+  actualDurationValue.textContent = v || '–';
 }
 function updatePower(v){
   powerValue.textContent = (Math.round(v * 10) / 10) + ' W';
