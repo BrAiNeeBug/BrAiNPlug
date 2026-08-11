@@ -197,6 +197,18 @@
         <div class="stat-value" id="powerValue">–</div>
       </div>
       <div class="stat">
+        <div class="stat-label">Voltage</div>
+        <div class="stat-value" id="voltageValue">–</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Current</div>
+        <div class="stat-value" id="currentValue">–</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Energy</div>
+        <div class="stat-value" id="energyValue">–</div>
+      </div>
+      <div class="stat">
         <div class="stat-label">TimerMode</div>
         <div class="stat-value" id="timerModeValue" style="font-size:14px;">–</div>
       </div>
@@ -270,6 +282,9 @@ const CHAR_UUIDS = {
   timermode: '1bb6e309-c3df-4fd7-88d8-96039201b1db',
   timerconf: '2bc4d2fc-4a0e-4d00-8bf3-1a25656eb587',
   power:     '18074a57-a3ba-49a6-a958-d49525bb9434',
+  voltage:   'eef5b493-e0b5-4257-b79f-5945b52fc4b4',
+  current:   'e512c5a0-e726-478f-94ae-e19218f60118',
+  energy:    'd3134b34-4635-4d72-9e50-49053be2bc19',
 };
 
 // Muss >= dem größtmöglichen Backoff-Delay im YAML sein (dort aktuell Cap bei 60s).
@@ -309,6 +324,9 @@ const relaySwitch = document.getElementById('relaySwitch');
 const relaySub = document.getElementById('relaySub');
 const childlockSwitch = document.getElementById('childlockSwitch');
 const powerValue = document.getElementById('powerValue');
+const voltageValue = document.getElementById('voltageValue');
+const currentValue = document.getElementById('currentValue');
+const energyValue = document.getElementById('energyValue');
 const timerModeValue = document.getElementById('timerModeValue');
 const timerOffBtn = document.getElementById('timerOffBtn');
 const writeStatus = document.getElementById('writeStatus');
@@ -331,6 +349,9 @@ function setConnectedUI(connected){
     statusText.textContent = 'Not connected';
     relaySub.textContent = 'unknown';
     powerValue.textContent = '–';
+    voltageValue.textContent = '–';
+    currentValue.textContent = '–';
+    energyValue.textContent = '–';
     timerModeValue.textContent = '–';
     relaySwitch.classList.remove('on');
     childlockSwitch.classList.remove('on');
@@ -386,7 +407,7 @@ async function connect(){
     }
     await subscribeAll();
     await refreshAll();
-	startPowerPolling();
+	startStatsPolling();
     statusText.textContent = device.name || 'BrAiNPlug';
     setConnectedUI(true);
   } catch (err) {
@@ -397,13 +418,13 @@ async function connect(){
 }
 
 function onDisconnected(){
-  stopPowerPolling();
+  stopStatsPolling();
   chars = {};
   setConnectedUI(false);
 }
 
 async function disconnect(){
-  stopPowerPolling();
+  stopStatsPolling();
   if (device && device.gatt.connected) device.gatt.disconnect();
   setConnectedUI(false);
 }
@@ -417,29 +438,37 @@ async function subscribeAll(){
   await chars.timermode.startNotifications();
   chars.power.addEventListener('characteristicvaluechanged', e => updatePower(e.target.value.getFloat32(0, true)));
   await chars.power.startNotifications();
+  chars.voltage.addEventListener('characteristicvaluechanged', e => updateVoltage(e.target.value.getFloat32(0, true)));
+  await chars.voltage.startNotifications();
+  chars.current.addEventListener('characteristicvaluechanged', e => updateCurrent(e.target.value.getFloat32(0, true)));
+  await chars.current.startNotifications();
+  chars.energy.addEventListener('characteristicvaluechanged', e => updateEnergy(e.target.value.getFloat32(0, true)));
+  await chars.energy.startNotifications();
 }
 
-let powerPollTimer = null;
+let statsPollTimer = null;
 
-function startPowerPolling(){
-  stopPowerPolling();
+function startStatsPolling(){
+  stopStatsPolling();
 
-  powerPollTimer = setInterval(async () => {
+  statsPollTimer = setInterval(async () => {
     if (!device || !device.gatt || !device.gatt.connected || !chars.power) return;
 
     try {
-      const value = await chars.power.readValue();
-      updatePower(value.getFloat32(0, true));
+      updatePower((await chars.power.readValue()).getFloat32(0, true));
+      updateVoltage((await chars.voltage.readValue()).getFloat32(0, true));
+      updateCurrent((await chars.current.readValue()).getFloat32(0, true));
+      updateEnergy((await chars.energy.readValue()).getFloat32(0, true));
     } catch (err) {
-      console.warn('Power read failed:', err);
+      console.warn('Stats read failed:', err);
     }
   }, 1000);
 }
 
-function stopPowerPolling(){
-  if (powerPollTimer){
-    clearInterval(powerPollTimer);
-    powerPollTimer = null;
+function stopStatsPolling(){
+  if (statsPollTimer){
+    clearInterval(statsPollTimer);
+    statsPollTimer = null;
   }
 }
 
@@ -448,6 +477,9 @@ async function refreshAll(){
   updateChildlock((await chars.childlock.readValue()).getUint8(0));
   updateTimerMode(dec.decode(await chars.timermode.readValue()));
   updatePower((await chars.power.readValue()).getFloat32(0, true));
+  updateVoltage((await chars.voltage.readValue()).getFloat32(0, true));
+  updateCurrent((await chars.current.readValue()).getFloat32(0, true));
+  updateEnergy((await chars.energy.readValue()).getFloat32(0, true));
 }
 
 function updateRelay(v){
@@ -463,6 +495,15 @@ function updateTimerMode(v){
 }
 function updatePower(v){
   powerValue.textContent = (Math.round(v * 10) / 10) + ' W';
+}
+function updateVoltage(v){
+  voltageValue.textContent = (Math.round(v * 10) / 10) + ' V';
+}
+function updateCurrent(v){
+  currentValue.textContent = (Math.round(v * 1000) / 1000) + ' A';
+}
+function updateEnergy(v){
+  energyValue.textContent = (Math.round(v * 1000) / 1000) + ' kWh';
 }
 
 relaySwitch.addEventListener('click', async () => {
