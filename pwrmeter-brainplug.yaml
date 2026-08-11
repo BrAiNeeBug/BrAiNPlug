@@ -48,7 +48,6 @@ sensor:
         sorting_weight: 4
       icon: "mdi:lightning-bolt"
     update_interval: 5s
-
   - platform: integration
     id: energy_integration
     internal: true
@@ -71,7 +70,7 @@ sensor:
     device_class: energy
     state_class: total_increasing
     accuracy_decimals: 3
-    update_interval: 5s
+    update_interval: 15s
     lambda: |-
       return id(energy_total);
     icon: "mdi:home-lightning-bolt"

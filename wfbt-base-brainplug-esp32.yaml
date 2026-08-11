@@ -7,7 +7,7 @@ substitutions:
   localdomain: ".local"
 
 esphome:
-  comment: BrAiN_Plug_1.5.5_ESP32
+  comment: BrAiN_Plug_1.5.6_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -155,7 +155,7 @@ select:
     icon: "mdi:cog-clockwise"
     entity_category: config
     web_server:
-      sorting_weight: 2
+      sorting_weight: 3
   - platform: template
     name: "TimerMode"
     id: timer_mode_select
@@ -183,7 +183,7 @@ select:
     icon: "mdi:timer-cog"
     entity_category: config
     web_server:
-      sorting_weight: 3
+      sorting_weight: 4
 text:
   - platform: template
     name: "TimerConf"
@@ -203,7 +203,7 @@ text:
         - ble_server.characteristic.notify:
             id: ble_timerconf_char
     web_server:
-      sorting_weight: 4
+      sorting_weight: 5
 web_server:
   port: 80
   version: 3
@@ -413,13 +413,21 @@ esp32_ble_server:
             data: !lambda |-
               if (!id(ble_authed)) return std::vector<uint8_t>{};
               return bytebuffer::ByteBuffer::wrap(id(total_energy_display).state).get_data();
+        - id: ble_actualduration_char
+          uuid: f848732a-d062-457c-aa8e-66c1b5e5fa2e
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              std::string s = id(relay_duration_display).state;
+              return std::vector<uint8_t>(s.begin(), s.end());
 
 time:
   - platform: sntp
     id: timesrc
 
 interval:
-  - interval: 10s
+  - interval: 5s
     then:
       - lambda: |
           auto now = id(timesrc).now();
@@ -540,7 +548,7 @@ interval:
             id(weekly_status_str) = std::string(status_buf);
           }
 
-  - interval: 1s
+  - interval: 5s
     then:
       - lambda: |-
           if (id(timer_mode) != 5) return;
@@ -598,6 +606,7 @@ text_sensor:
   - platform: template
     name: "SystemClock"
     id: current_time_display
+    update_interval: 5s
     icon: "mdi:clock-outline"
     lambda: |-
       auto now = id(timesrc).now();
@@ -716,7 +725,7 @@ sensor:
   - platform: wifi_signal
     name: "WiFiSignal"
     id: wifi_signal_rssi
-    update_interval: 30s
+    update_interval: 15s
     entity_category: diagnostic
     icon: "mdi:wifi-strength-2"
     disabled_by_default: true
@@ -787,21 +796,6 @@ switch:
     web_server:
       sorting_weight: 1
   - platform: template
-    name: "ChildLock"
-    id: child_lock
-    icon: "mdi:lock"
-    entity_category: config
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-    on_turn_on:
-      - ble_server.characteristic.notify:
-          id: ble_childlock_char
-    on_turn_off:
-      - ble_server.characteristic.notify:
-          id: ble_childlock_char
-    web_server:
-      sorting_weight: 1
-  - platform: template
     name: "Bluetooth"
     id: bluetooth_enable
     icon: "mdi:bluetooth"
@@ -826,7 +820,22 @@ switch:
     on_turn_off:
       - ble.disable:
     web_server:
-      sorting_weight: 9
+      sorting_weight: 1
+  - platform: template
+    name: "ChildLock"
+    id: child_lock
+    icon: "mdi:lock"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - ble_server.characteristic.notify:
+          id: ble_childlock_char
+    on_turn_off:
+      - ble_server.characteristic.notify:
+          id: ble_childlock_char
+    web_server:
+      sorting_weight: 2
 binary_sensor:
   - platform: gpio
     pin:
