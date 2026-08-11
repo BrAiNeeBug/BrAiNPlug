@@ -272,6 +272,24 @@ const CHAR_UUIDS = {
   power:     '18074a57-a3ba-49a6-a958-d49525bb9434',
 };
 
+// Muss >= dem größtmöglichen Backoff-Delay im YAML sein (dort aktuell Cap bei 60s).
+const AUTH_TIMEOUT_MS = 65000;
+
+function waitForAuthNotify(timeoutMs){
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      chars.auth.removeEventListener('characteristicvaluechanged', handler);
+      reject(new Error('Auth timeout'));
+    }, timeoutMs);
+    function handler(e){
+      clearTimeout(timer);
+      chars.auth.removeEventListener('characteristicvaluechanged', handler);
+      resolve(e.target.value.getUint8(0));
+    }
+    chars.auth.addEventListener('characteristicvaluechanged', handler);
+  });
+}
+
 async function hmacSha256(keyStr, msgBytes){
   const keyData = enc.encode(keyStr);
   const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
@@ -345,9 +363,23 @@ async function connect(){
     const nonceVal = await chars.nonce.readValue();
     const nonceBytes = new Uint8Array(nonceVal.buffer, nonceVal.byteOffset, nonceVal.byteLength);
     const response = await hmacSha256(pin, nonceBytes);
+
+    // Wichtig: ESP32 verzögert die Auth-Antwort absichtlich (Anti-Bruteforce-Backoff),
+    // daher NICHT sofort lesen, sondern auf die Notify warten.
+    await chars.auth.startNotifications();
+    const authPromise = waitForAuthNotify(AUTH_TIMEOUT_MS);
     await chars.response.writeValue(response);
-    const authResult = await chars.auth.readValue();
-    if (authResult.getUint8(0) !== 1){
+
+    let authValue;
+    statusText.textContent = 'Waiting for plug (may take a bit after wrong attempts)…';
+    try {
+      authValue = await authPromise;
+    } catch (e) {
+      statusText.textContent = 'Auth timeout — plug still in backoff from recent wrong attempts, try again later.';
+      device.gatt.disconnect();
+      return;
+    }
+    if (authValue !== 1){
       statusText.textContent = 'Wrong PIN — rejected by the plug.';
       device.gatt.disconnect();
       return;
@@ -360,7 +392,7 @@ async function connect(){
   } catch (err) {
     statusText.textContent = 'Connection failed: ' + err.message;
     statusDot.classList.add('err');
-    setTimeout(() => statusDot.classList.remove('err'), 30000);
+    setTimeout(() => statusDot.classList.remove('err'), 2500);
   }
 }
 
