@@ -679,27 +679,78 @@ function setOutput(str){
 }
 
 let painting = false, paintValue = true;
+let touchGestureMode = null; // 'paint' | 'scroll' | null while undecided (touch only)
+let touchStartX = 0, touchStartY = 0, touchLastY = 0;
+let touchHoldTimer = null;
+const TOUCH_HOLD_MS = 160;      // hold this long without moving -> paint mode
+const TOUCH_MOVE_THRESHOLD = 8; // px of early movement that counts as "scrolling"
+
 function setCell(cellEl, value){
   const d = +cellEl.dataset.day, h = +cellEl.dataset.hour;
   state[d][h] = value;
   cellEl.classList.toggle('active', value);
   setOutput(generateSchedule());
 }
+
 gridEl.addEventListener('pointerdown', e => {
   const cell = e.target.closest('.cell');
   if (!cell) return;
-  painting = true;
   paintValue = !cell.classList.contains('active');
-  setCell(cell, paintValue);
-  gridEl.setPointerCapture(e.pointerId);
+
+  if (e.pointerType === 'touch'){
+    // Don't paint immediately - if the finger moves before the hold
+    // delay is up, that's a scroll swipe, not a paint gesture.
+    touchGestureMode = null;
+    touchStartX = e.clientX; touchStartY = e.clientY; touchLastY = e.clientY;
+    clearTimeout(touchHoldTimer);
+    touchHoldTimer = setTimeout(() => {
+      if (touchGestureMode === null){
+        touchGestureMode = 'paint';
+        painting = true;
+        setCell(cell, paintValue);
+        gridEl.setPointerCapture(e.pointerId);
+      }
+    }, TOUCH_HOLD_MS);
+  } else {
+    painting = true;
+    setCell(cell, paintValue);
+    gridEl.setPointerCapture(e.pointerId);
+  }
 });
 gridEl.addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch'){
+    if (touchGestureMode === null){
+      const dx = e.clientX - touchStartX;
+      const dy = e.clientY - touchStartY;
+      if (Math.abs(dx) < TOUCH_MOVE_THRESHOLD && Math.abs(dy) < TOUCH_MOVE_THRESHOLD) return;
+      // Moved before the hold delay fired - treat as a scroll swipe.
+      clearTimeout(touchHoldTimer);
+      touchGestureMode = 'scroll';
+    }
+    if (touchGestureMode === 'scroll'){
+      // touch-action:none stops the browser's own scrolling on the grid,
+      // so replicate it manually while the finger moves.
+      window.scrollBy(0, touchLastY - e.clientY);
+      touchLastY = e.clientY;
+      return;
+    }
+  }
   if (!painting) return;
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const cell = el && el.closest('.cell');
   if (cell) setCell(cell, paintValue);
 });
-['pointerup','pointercancel'].forEach(evt => gridEl.addEventListener(evt, () => { painting = false; }));
+gridEl.addEventListener('pointerup', e => {
+  clearTimeout(touchHoldTimer);
+  if (e.pointerType === 'touch' && touchGestureMode === null){
+    // Released before the hold delay and before any real movement - plain tap.
+    const cell = e.target.closest('.cell');
+    if (cell) setCell(cell, paintValue);
+  }
+  painting = false;
+  touchGestureMode = null;
+});
+gridEl.addEventListener('pointercancel', () => { clearTimeout(touchHoldTimer); painting = false; touchGestureMode = null; });
 
 document.getElementById('clearBtn').addEventListener('click', () => {
   for (let d=0; d<7; d++) for (let h=0; h<HOURS; h++) state[d][h] = false;
