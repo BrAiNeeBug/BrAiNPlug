@@ -88,6 +88,14 @@
   }
   .switch.on .knob{ transform: translateX(20px); }
 
+  .pmode-select{
+    font-family:var(--sans); font-size:12.5px; font-weight:600; flex:none;
+    background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px; padding:7px 10px;
+    cursor:pointer;
+  }
+  .pmode-select:disabled{ opacity:0.4; cursor:not-allowed; }
+
   /* --- tabs (schedule builder, same as wsb.html) --- */
   .tabs{ display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
   .tab{
@@ -191,6 +199,17 @@
       </div>
       <div class="switch disabled" id="childlockSwitch"><div class="knob"></div></div>
     </div>
+    <div class="toggle-row" style="margin-top:14px;">
+      <div>
+        <div class="toggle-label">PowerONMode</div>
+        <div class="toggle-sub">state to restore to after power loss</div>
+      </div>
+      <select class="pmode-select" id="powerModeSelect" disabled>
+        <option value="Last State">Last State</option>
+        <option value="Always ON">Always ON</option>
+        <option value="Always OFF">Always OFF</option>
+      </select>
+    </div>
     <div class="status-grid">
       <div class="stat">
         <div class="stat-label">Power</div>
@@ -283,6 +302,7 @@ const CHAR_UUIDS = {
   auth:      'bff96ad9-2846-45e8-9912-3916a6ddf141',
   relay:     'b2fbcf01-888c-4dbd-a0ca-9c59855115a6',
   childlock: '9745e8b8-7ffb-44f8-adfa-e986ee933a8f',
+  powermode: '5a2c9438-6e1b-4f83-9a02-7dfb1c5e8a3c',
   timermode: '1bb6e309-c3df-4fd7-88d8-96039201b1db',
   timerconf: '2bc4d2fc-4a0e-4d00-8bf3-1a25656eb587',
   power:     '18074a57-a3ba-49a6-a958-d49525bb9434',
@@ -328,6 +348,7 @@ const statusText = document.getElementById('statusText');
 const relaySwitch = document.getElementById('relaySwitch');
 const relaySub = document.getElementById('relaySub');
 const childlockSwitch = document.getElementById('childlockSwitch');
+const powerModeSelect = document.getElementById('powerModeSelect');
 const powerValue = document.getElementById('powerValue');
 const voltageValue = document.getElementById('voltageValue');
 const currentValue = document.getElementById('currentValue');
@@ -349,6 +370,7 @@ function setConnectedUI(connected){
   disconnectBtn.disabled = !connected;
   relaySwitch.classList.toggle('disabled', !connected);
   childlockSwitch.classList.toggle('disabled', !connected);
+  powerModeSelect.disabled = !connected;
   setBtns.forEach(b => b.disabled = !connected);
   timerOffBtn.disabled = !connected;
   if (!connected){
@@ -362,6 +384,7 @@ function setConnectedUI(connected){
     actualDurationValue.textContent = '–';
     relaySwitch.classList.remove('on');
     childlockSwitch.classList.remove('on');
+    powerModeSelect.value = 'Last State';
   }
 }
 
@@ -443,6 +466,8 @@ async function subscribeAll(){
   await chars.childlock.startNotifications();
   chars.timermode.addEventListener('characteristicvaluechanged', e => updateTimerMode(dec.decode(e.target.value)));
   await chars.timermode.startNotifications();
+  chars.powermode.addEventListener('characteristicvaluechanged', e => updatePowerMode(dec.decode(e.target.value)));
+  await chars.powermode.startNotifications();
 }
 
 let statsPollTimer = null;
@@ -489,6 +514,7 @@ async function refreshAll(){
   updateRelay((await chars.relay.readValue()).getUint8(0));
   updateChildlock((await chars.childlock.readValue()).getUint8(0));
   updateTimerMode(dec.decode(await chars.timermode.readValue()));
+  updatePowerMode(dec.decode(await chars.powermode.readValue()));
   updateActualDuration(dec.decode(await chars.actualduration.readValue()));
   updatePower((await chars.power.readValue()).getFloat32(0, true));
   updateVoltage((await chars.voltage.readValue()).getFloat32(0, true));
@@ -509,6 +535,9 @@ function updateTimerMode(v){
 }
 function updateActualDuration(v){
   actualDurationValue.textContent = v || '–';
+}
+function updatePowerMode(v){
+  if (v) powerModeSelect.value = v;
 }
 function updatePower(v){
   powerValue.textContent = (Math.round(v * 10) / 10) + ' W';
@@ -532,6 +561,10 @@ childlockSwitch.addEventListener('click', async () => {
   if (childlockSwitch.classList.contains('disabled')) return;
   const next = childlockSwitch.classList.contains('on') ? 0 : 1;
   await chars.childlock.writeValue(new Uint8Array([next]));
+});
+powerModeSelect.addEventListener('change', async () => {
+  if (powerModeSelect.disabled) return;
+  await chars.powermode.writeValue(enc.encode(powerModeSelect.value));
 });
 
 connectBtn.addEventListener('click', connect);
