@@ -173,7 +173,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — BLE-Control (0.1.2)</h1>
+  <h1>BrAiNPlug — BLE-Control (0.1.3)</h1>
   <p class="subtitle">Controls a BrAiNPlug ESP32 (e.g. Nous A8T) directly over BLE via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> — no app needed. Works in <b>Chrome/Edge on desktop and Android</b> only; iOS Safari and Firefox don't support this API at all. Page must be served over <b>HTTPS</b> (GitHub Pages is fine) — it won't work opened as a local file.</p>
 
   <div class="panel">
@@ -252,7 +252,7 @@
       <button class="tab active" data-tab="weekly">Weekly</button>
       <button class="tab" data-tab="daily">Daily</button>
       <button class="tab" data-tab="duration">Duration</button>
-      <button class="timer-off-link" disabled>Turn-Timer-Off</button>
+      <button class="timer-off-link" disabled>Turn timer off</button>
     </div>
 
     <div class="tab-panel active" id="tab-weekly">
@@ -396,6 +396,45 @@ function showWriteStatus(msg, ok){
   writeStatus.className = 'status ' + (ok ? 'ok' : 'err');
 }
 
+// All BLE writes (relay, childlock, powermode, timer) go through here.
+// GATT can only do one operation at a time anyway, and if one hangs due
+// to a timing hiccup, a hard timeout + a couple of retries make sure the
+// action still lands instead of silently getting lost.
+let writeChain = Promise.resolve();
+const WRITE_TIMEOUT_MS = 4000;
+const WRITE_MAX_RETRIES = 2;
+
+function withTimeout(promise, ms){
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(
+      v => { clearTimeout(timer); resolve(v); },
+      err => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+function queueWrite(fn, label){
+  const run = writeChain.then(async () => {
+    let lastErr;
+    for (let attempt = 0; attempt <= WRITE_MAX_RETRIES; attempt++){
+      if (!device || !device.gatt || !device.gatt.connected){
+        throw new Error('not connected');
+      }
+      try {
+        return await withTimeout(fn(), WRITE_TIMEOUT_MS);
+      } catch (err) {
+        lastErr = err;
+        console.warn(`Write "${label}" attempt ${attempt + 1} failed:`, err.message);
+      }
+    }
+    throw lastErr;
+  });
+  // Keep the chain alive even after a failure, so later writes still queue up.
+  writeChain = run.catch(() => {});
+  return run;
+}
+
 async function connect(){
   const pin = document.getElementById('pinInput').value;
   if (!pin){
@@ -453,6 +492,7 @@ async function connect(){
 function onDisconnected(){
   stopStatsPolling();
   chars = {};
+  writeChain = Promise.resolve();
   setConnectedUI(false);
 }
 
@@ -552,16 +592,28 @@ function updateEnergy(v){
 relaySwitch.addEventListener('click', async () => {
   if (relaySwitch.classList.contains('disabled')) return;
   const next = relaySwitch.classList.contains('on') ? 0 : 1;
-  await chars.relay.writeValue(new Uint8Array([next]));
+  try {
+    await queueWrite(() => chars.relay.writeValue(new Uint8Array([next])), 'relay');
+  } catch (err) {
+    showWriteStatus('Relay write failed: ' + err.message, false);
+  }
 });
 childlockSwitch.addEventListener('click', async () => {
   if (childlockSwitch.classList.contains('disabled')) return;
   const next = childlockSwitch.classList.contains('on') ? 0 : 1;
-  await chars.childlock.writeValue(new Uint8Array([next]));
+  try {
+    await queueWrite(() => chars.childlock.writeValue(new Uint8Array([next])), 'childlock');
+  } catch (err) {
+    showWriteStatus('ChildLock write failed: ' + err.message, false);
+  }
 });
 powerModeSelect.addEventListener('change', async () => {
   if (powerModeSelect.disabled) return;
-  await chars.powermode.writeValue(enc.encode(powerModeSelect.value));
+  try {
+    await queueWrite(() => chars.powermode.writeValue(enc.encode(powerModeSelect.value)), 'powermode');
+  } catch (err) {
+    showWriteStatus('PowerONMode write failed: ' + err.message, false);
+  }
 });
 
 connectBtn.addEventListener('click', connect);
@@ -574,8 +626,8 @@ async function setTimer(mode){
     return;
   }
   try {
-    await chars.timerconf.writeValue(enc.encode(value));
-    await chars.timermode.writeValue(enc.encode(mode));
+    await queueWrite(() => chars.timerconf.writeValue(enc.encode(value)), 'timerconf');
+    await queueWrite(() => chars.timermode.writeValue(enc.encode(mode)), 'timermode');
     showWriteStatus('Set TimerMode to ' + mode + ' with that schedule.', true);
   } catch (err) {
     showWriteStatus('Write failed: ' + err.message, false);
@@ -589,7 +641,7 @@ document.getElementById('setDurationBtn').addEventListener('click', () => setTim
 
 timerOffBtns.forEach(btn => btn.addEventListener('click', async () => {
   try {
-    await chars.timermode.writeValue(enc.encode('OFF'));
+    await queueWrite(() => chars.timermode.writeValue(enc.encode('OFF')), 'timermode-off');
     showWriteStatus('TimerMode set to OFF.', true);
   } catch (err) {
     showWriteStatus('Write failed: ' + err.message, false);
