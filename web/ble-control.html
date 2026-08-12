@@ -97,7 +97,7 @@
   .pmode-select:disabled{ opacity:0.4; cursor:not-allowed; }
 
   /* --- tabs (schedule builder, same as wsb.html) --- */
-  .tabs{ display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+  .tabs{ display:flex; align-items:center; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
   .tab{
     font-family:var(--sans); font-size:12.5px; font-weight:600; color:var(--muted);
     background:none; border:none; border-bottom:2px solid transparent;
@@ -105,6 +105,13 @@
   }
   .tab:hover{ color:var(--text); border-color:transparent; }
   .tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .timer-off-link{
+    font-family:var(--sans); font-size:12px; font-weight:600; color:var(--muted);
+    background:none; border:none; padding:8px 2px; margin-left:auto; margin-bottom:-1px;
+    cursor:pointer; text-decoration:underline; text-underline-offset:2px;
+  }
+  .timer-off-link:hover:not(:disabled){ color:var(--err); }
+  .timer-off-link:disabled{ opacity:0.4; cursor:not-allowed; text-decoration:none; }
   .tab-panel{ display:none; }
   .tab-panel.active{ display:block; }
 
@@ -150,8 +157,9 @@
     .stat{ padding:8px 10px; }
     .stat-value{ font-size:16px; }
     /* Tabs: nicht abschneiden, kleiner Abstand */
-    .tabs{ gap:2px; }
+    .tabs{ gap:2px; flex-wrap:wrap; }
     .tab{ font-size:12px; padding:8px 6px; }
+    .timer-off-link{ font-size:12px; padding:8px 4px; }
     /* Grid-Zellen größer für Touch, horizontales Wischen bleibt über grid-scroll */
     .cell{ height:22px; }
     .hour-label{ line-height:22px; height:22px; }
@@ -244,6 +252,7 @@
       <button class="tab active" data-tab="weekly">Weekly</button>
       <button class="tab" data-tab="daily">Daily</button>
       <button class="tab" data-tab="duration">Duration</button>
+      <button class="timer-off-link" disabled>Turn timer off</button>
     </div>
 
     <div class="tab-panel active" id="tab-weekly">
@@ -255,7 +264,6 @@
       <div class="row-actions">
         <button id="setWeeklyBtn" class="primary" disabled>Set as Weekly</button>
         <button id="setWeeklySingleBtn" class="primary" disabled>Set as WeeklySingle</button>
-        <button class="timer-off-btn" disabled>Turn timer off</button>
       </div>
       <p class="hint">The string below updates live as you paint. For a range crossing midnight, edit it by hand before pressing Set.</p>
     </div>
@@ -268,7 +276,6 @@
       <div class="row-actions">
         <button id="setDailyBtn" class="primary" disabled>Set as Daily</button>
         <button id="setDailySingleBtn" class="primary" disabled>Set as DailySingle</button>
-        <button class="timer-off-btn" disabled>Turn timer off</button>
       </div>
       <p class="hint"><b>Daily</b> keeps forcing the state the whole window (survives reboot); <b>DailySingle</b> only fires once at each time. Doesn't have to be same-day; e.g. 22:00:00-06:00:00 crosses midnight fine.</p>
     </div>
@@ -280,7 +287,6 @@
       </div>
       <div class="row-actions">
         <button id="setDurationBtn" class="primary" disabled>Set as Duration</button>
-        <button class="timer-off-btn" disabled>Turn timer off</button>
       </div>
       <p class="hint">The plug repeats this ON/OFF cycle continuously. Not a clock time — a duration (HH:MM:SS each).</p>
     </div>
@@ -352,7 +358,7 @@ const currentValue = document.getElementById('currentValue');
 const energyValue = document.getElementById('energyValue');
 const timerModeValue = document.getElementById('timerModeValue');
 const actualDurationValue = document.getElementById('actualDurationValue');
-const timerOffBtns = document.querySelectorAll('.timer-off-btn');
+const timerOffBtns = document.querySelectorAll('.timer-off-link');
 const writeStatus = document.getElementById('writeStatus');
 const setBtns = ['setWeeklyBtn','setWeeklySingleBtn','setDailyBtn','setDailySingleBtn','setDurationBtn'].map(id => document.getElementById(id));
 
