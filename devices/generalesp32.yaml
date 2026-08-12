@@ -19,6 +19,7 @@ substitutions:
 
 packages:
   base: !include base-brainplug-esp32.yaml
+  power: !include pwrmeter-brainplug.yaml
 
 api:
   encryption:
