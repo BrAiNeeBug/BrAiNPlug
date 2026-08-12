@@ -8,18 +8,18 @@ substitutions:
     inverted: true
   led_pin: GPIO5
   button_pin: GPIO19
-  sel_pin: GPIO14
-  cf_pin: GPIO27
-  cf1_pin: GPIO26
-  voltage_divider: "0"
-  current_resistor: "0"
-  power_multiply: "0"
+  #sel_pin: GPIO14
+  #cf_pin: GPIO27
+  #cf1_pin: GPIO26
+  #voltage_divider: "0"
+  #current_resistor: "0"
+  #power_multiply: "0"
   localdomain: ".local"
   ble_pin: !secret esp32general__ble_pin
 
 packages:
   base: !include base-brainplug-esp32.yaml
-  power: !include pwrmeter-brainplug.yaml
+  #power: !include pwrmeter-brainplug.yaml
 
 api:
   encryption:
