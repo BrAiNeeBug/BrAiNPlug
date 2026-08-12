@@ -118,7 +118,7 @@
   .grid-scroll{ overflow-x:auto; }
   .grid-outer{
     display:grid; grid-template-columns: 34px repeat(7, 1fr);
-    min-width:480px; user-select:none; -webkit-user-select:none; touch-action:none;
+    width:calc(100% - 2px); min-width:480px; user-select:none; -webkit-user-select:none; touch-action:none;
   }
   .day-label{ font-size:11px; color:var(--muted); text-align:center; padding-bottom:6px; font-weight:600; }
   .hour-label{
@@ -173,7 +173,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — BLE-Control (0.1.3)</h1>
+  <h1>BrAiNPlug — BLE-Control (0.1.4)</h1>
   <p class="subtitle">Controls a BrAiNPlug ESP32 (e.g. Nous A8T) directly over BLE via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> — no app needed. Works in <b>Chrome/Edge on desktop and Android</b> only; iOS Safari and Firefox don't support this API at all. Page must be served over <b>HTTPS</b> (GitHub Pages is fine) — it won't work opened as a local file.</p>
 
   <div class="panel">
@@ -252,12 +252,12 @@
       <button class="tab active" data-tab="weekly">Weekly</button>
       <button class="tab" data-tab="daily">Daily</button>
       <button class="tab" data-tab="duration">Duration</button>
-      <button class="timer-off-link" disabled>Turn-Timer-Off</button>
+      <button class="timer-off-link" disabled>Turn timer off</button>
     </div>
 
     <div class="tab-panel active" id="tab-weekly">
       <p class="hint" style="margin-top:0; margin-bottom:12px;">Click or drag across the grid to paint when the plug should be on. Each column is one weekday, each row is one hour.</p>
-      <div class="grid-scroll"><div class="grid-outer" id="grid"></div></div>
+      <div class="grid-scroll" id="gridScroll"><div class="grid-outer" id="grid"></div></div>
       <div class="row-actions">
         <button id="clearBtn">Clear grid</button>
       </div>
@@ -550,13 +550,20 @@ function stopStatsPolling(){
 async function refreshAll(){
   updateRelay((await chars.relay.readValue()).getUint8(0));
   updateChildlock((await chars.childlock.readValue()).getUint8(0));
-  updateTimerMode(dec.decode(await chars.timermode.readValue()));
+  const modeStr = dec.decode(await chars.timermode.readValue());
+  updateTimerMode(modeStr);
   updatePowerMode(dec.decode(await chars.powermode.readValue()));
   updateActualDuration(dec.decode(await chars.actualduration.readValue()));
   updatePower((await chars.power.readValue()).getFloat32(0, true));
   updateVoltage((await chars.voltage.readValue()).getFloat32(0, true));
   updateCurrent((await chars.current.readValue()).getFloat32(0, true));
   updateEnergy((await chars.energy.readValue()).getFloat32(0, true));
+  try {
+    const confStr = dec.decode(await chars.timerconf.readValue());
+    applyTimerConfToUI(modeStr, confStr);
+  } catch (err) {
+    console.warn('TimerConf read failed:', err);
+  }
 }
 
 function updateRelay(v){
@@ -724,12 +731,54 @@ function setOutput(str){
   writeStatus.textContent = '';
 }
 
+function applyTimerConfToUI(mode, confStr){
+  confStr = (confStr || '').trim();
+  if (!confStr) return;
+
+  if (mode === 'Weekly' || mode === 'WeeklySingle'){
+    for (let d=0; d<7; d++) for (let h=0; h<HOURS; h++) state[d][h] = false;
+    confStr.split(';').forEach(entry => {
+      const m = entry.trim().match(/^(\d{2})(\d{2})-(\d{2})(\d{2}):([A-Za-z]+)$/);
+      if (!m) return;
+      const startH = parseInt(m[1], 10);
+      const endH = parseInt(m[3], 10);
+      const days = [];
+      for (let i = 0; i < m[5].length; i += 2){
+        const idx = DAY_TOKENS.indexOf(m[5].substr(i, 2));
+        if (idx >= 0) days.push(idx);
+      }
+      days.forEach(d => {
+        for (let h = startH; h < endH && h < HOURS; h++) state[d][h] = true;
+      });
+    });
+    gridEl.querySelectorAll('.cell').forEach(cell => {
+      const d = +cell.dataset.day, h = +cell.dataset.hour;
+      cell.classList.toggle('active', state[d][h]);
+    });
+  } else if (mode === 'Daily' || mode === 'DailySingle'){
+    const m = confStr.match(/^(\d{2}:\d{2}:\d{2})-(\d{2}:\d{2}:\d{2})$/);
+    if (m){
+      document.getElementById('dailyStart').value = m[1];
+      document.getElementById('dailyEnd').value = m[2];
+    }
+  } else if (mode === 'Duration'){
+    const m = confStr.match(/^(\d{2}:\d{2}:\d{2})\/(\d{2}:\d{2}:\d{2})$/);
+    if (m){
+      document.getElementById('durationOn').value = m[1];
+      document.getElementById('durationOff').value = m[2];
+    }
+  }
+  // Show what's actually stored on the plug right now, regardless of tab.
+  setOutput(confStr);
+}
+
 let painting = false, paintValue = true;
 let touchGestureMode = null; // 'paint' | 'scroll' | null while undecided (touch only)
-let touchStartX = 0, touchStartY = 0, touchLastY = 0;
+let touchStartX = 0, touchStartY = 0, touchLastX = 0, touchLastY = 0;
 let touchHoldTimer = null;
 const TOUCH_HOLD_MS = 160;      // hold this long without moving -> paint mode
 const TOUCH_MOVE_THRESHOLD = 8; // px of early movement that counts as "scrolling"
+const gridScrollEl = document.getElementById('gridScroll');
 
 function setCell(cellEl, value){
   const d = +cellEl.dataset.day, h = +cellEl.dataset.hour;
@@ -747,7 +796,7 @@ gridEl.addEventListener('pointerdown', e => {
     // Don't paint immediately - if the finger moves before the hold
     // delay is up, that's a scroll swipe, not a paint gesture.
     touchGestureMode = null;
-    touchStartX = e.clientX; touchStartY = e.clientY; touchLastY = e.clientY;
+    touchStartX = e.clientX; touchStartY = e.clientY; touchLastX = e.clientX; touchLastY = e.clientY;
     clearTimeout(touchHoldTimer);
     touchHoldTimer = setTimeout(() => {
       if (touchGestureMode === null){
@@ -775,8 +824,11 @@ gridEl.addEventListener('pointermove', e => {
     }
     if (touchGestureMode === 'scroll'){
       // touch-action:none stops the browser's own scrolling on the grid,
-      // so replicate it manually while the finger moves.
+      // so replicate both page-scroll (vertical) and the grid's own
+      // horizontal scroll (to reveal Fri-Sun) manually while the finger moves.
       window.scrollBy(0, touchLastY - e.clientY);
+      gridScrollEl.scrollLeft -= (e.clientX - touchLastX);
+      touchLastX = e.clientX;
       touchLastY = e.clientY;
       return;
     }
