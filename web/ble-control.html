@@ -173,7 +173,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — BLE-Control (0.1.1)</h1>
+  <h1>BrAiNPlug — BLE-Control (0.1.2)</h1>
   <p class="subtitle">Controls a BrAiNPlug ESP32 (e.g. Nous A8T) directly over BLE via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> — no app needed. Works in <b>Chrome/Edge on desktop and Android</b> only; iOS Safari and Firefox don't support this API at all. Page must be served over <b>HTTPS</b> (GitHub Pages is fine) — it won't work opened as a local file.</p>
 
   <div class="panel">
@@ -252,7 +252,7 @@
       <button class="tab active" data-tab="weekly">Weekly</button>
       <button class="tab" data-tab="daily">Daily</button>
       <button class="tab" data-tab="duration">Duration</button>
-      <button class="timer-off-link" disabled>Turn timer off</button>
+      <button class="timer-off-link" disabled>Turn-Timer-Off</button>
     </div>
 
     <div class="tab-panel active" id="tab-weekly">
@@ -474,42 +474,36 @@ async function subscribeAll(){
 }
 
 let statsPollTimer = null;
-let actualDurationPollTimer = null;
+let statsPollIndex = 0;
+const statsPollSequence = [
+  async () => updatePower((await chars.power.readValue()).getFloat32(0, true)),
+  async () => updateVoltage((await chars.voltage.readValue()).getFloat32(0, true)),
+  async () => updateCurrent((await chars.current.readValue()).getFloat32(0, true)),
+  async () => updateEnergy((await chars.energy.readValue()).getFloat32(0, true)),
+  async () => updateActualDuration(dec.decode(await chars.actualduration.readValue())),
+];
 
 function startStatsPolling(){
   stopStatsPolling();
+  statsPollIndex = 0;
 
   statsPollTimer = setInterval(async () => {
     if (!device || !device.gatt || !device.gatt.connected || !chars.power) return;
 
+    const step = statsPollSequence[statsPollIndex];
+    statsPollIndex = (statsPollIndex + 1) % statsPollSequence.length;
     try {
-      updatePower((await chars.power.readValue()).getFloat32(0, true));
-      updateVoltage((await chars.voltage.readValue()).getFloat32(0, true));
-      updateCurrent((await chars.current.readValue()).getFloat32(0, true));
-      updateEnergy((await chars.energy.readValue()).getFloat32(0, true));
+      await step();
     } catch (err) {
       console.warn('Stats read failed:', err);
     }
   }, 1000);
-
-  actualDurationPollTimer = setInterval(async () => {
-    if (!device || !device.gatt || !device.gatt.connected || !chars.actualduration) return;
-    try {
-      updateActualDuration(dec.decode(await chars.actualduration.readValue()));
-    } catch (err) {
-      console.warn('ActualDuration read failed:', err);
-    }
-  }, 5000);
 }
 
 function stopStatsPolling(){
   if (statsPollTimer){
     clearInterval(statsPollTimer);
     statsPollTimer = null;
-  }
-  if (actualDurationPollTimer){
-    clearInterval(actualDurationPollTimer);
-    actualDurationPollTimer = null;
   }
 }
 
