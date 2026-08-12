@@ -165,7 +165,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — BLE-Control (0.1.1)</h1>
+  <h1>BrAiNPlug — BLE-Control (0.1.0)</h1>
   <p class="subtitle">Controls a BrAiNPlug ESP32 (e.g. Nous A8T) directly over BLE via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> — no app needed. Works in <b>Chrome/Edge on desktop and Android</b> only; iOS Safari and Firefox don't support this API at all. Page must be served over <b>HTTPS</b> (GitHub Pages is fine) — it won't work opened as a local file.</p>
 
   <div class="panel">
@@ -251,24 +251,24 @@
       <div class="grid-scroll"><div class="grid-outer" id="grid"></div></div>
       <div class="row-actions">
         <button id="clearBtn">Clear grid</button>
-        <button id="generateBtn">Build string</button>
       </div>
       <div class="row-actions">
         <button id="setWeeklyBtn" class="primary" disabled>Set as Weekly</button>
         <button id="setWeeklySingleBtn" class="primary" disabled>Set as WeeklySingle</button>
+        <button class="timer-off-btn" disabled>Turn timer off</button>
       </div>
-      <p class="hint">Note: only paints ranges within a single day. For a range crossing midnight, build first, then edit the string below by hand.</p>
+      <p class="hint">The string below updates live as you paint. For a range crossing midnight, edit it by hand before pressing Set.</p>
     </div>
 
     <div class="tab-panel" id="tab-daily">
       <div class="time-row">
         <div class="time-field"><label for="dailyStart">ON at</label><input type="time" id="dailyStart" step="1" value="08:00:00"></div>
         <div class="time-field"><label for="dailyEnd">OFF at</label><input type="time" id="dailyEnd" step="1" value="18:00:00"></div>
-        <button id="dailyGenerateBtn">Build string</button>
       </div>
       <div class="row-actions">
         <button id="setDailyBtn" class="primary" disabled>Set as Daily</button>
         <button id="setDailySingleBtn" class="primary" disabled>Set as DailySingle</button>
+        <button class="timer-off-btn" disabled>Turn timer off</button>
       </div>
       <p class="hint"><b>Daily</b> keeps forcing the state the whole window (survives reboot); <b>DailySingle</b> only fires once at each time. Doesn't have to be same-day; e.g. 22:00:00-06:00:00 crosses midnight fine.</p>
     </div>
@@ -277,20 +277,17 @@
       <div class="time-row">
         <div class="time-field"><label for="durationOn">ON for</label><input type="time" id="durationOn" step="1" value="00:00:10"></div>
         <div class="time-field"><label for="durationOff">OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05"></div>
-        <button id="durationGenerateBtn">Build string</button>
       </div>
       <div class="row-actions">
         <button id="setDurationBtn" class="primary" disabled>Set as Duration</button>
+        <button class="timer-off-btn" disabled>Turn timer off</button>
       </div>
       <p class="hint">The plug repeats this ON/OFF cycle continuously. Not a clock time — a duration (HH:MM:SS each).</p>
     </div>
 
     <p class="panel-title" style="margin-top:16px;">TimerConf string</p>
-    <textarea id="output" spellcheck="false" rows="2" placeholder="Build a string above, or type/paste one directly."></textarea>
+    <textarea id="output" spellcheck="false" rows="2" placeholder="Fills in automatically as you paint/pick above, or type/paste one directly."></textarea>
     <p class="status" id="writeStatus"></p>
-    <div class="row-actions">
-      <button id="timerOffBtn" disabled>Turn timer off</button>
-    </div>
   </div>
 </div>
 
@@ -355,7 +352,7 @@ const currentValue = document.getElementById('currentValue');
 const energyValue = document.getElementById('energyValue');
 const timerModeValue = document.getElementById('timerModeValue');
 const actualDurationValue = document.getElementById('actualDurationValue');
-const timerOffBtn = document.getElementById('timerOffBtn');
+const timerOffBtns = document.querySelectorAll('.timer-off-btn');
 const writeStatus = document.getElementById('writeStatus');
 const setBtns = ['setWeeklyBtn','setWeeklySingleBtn','setDailyBtn','setDailySingleBtn','setDurationBtn'].map(id => document.getElementById(id));
 
@@ -372,7 +369,7 @@ function setConnectedUI(connected){
   childlockSwitch.classList.toggle('disabled', !connected);
   powerModeSelect.disabled = !connected;
   setBtns.forEach(b => b.disabled = !connected);
-  timerOffBtn.disabled = !connected;
+  timerOffBtns.forEach(b => b.disabled = !connected);
   if (!connected){
     statusText.textContent = 'Not connected';
     relaySub.textContent = 'unknown';
@@ -590,14 +587,14 @@ document.getElementById('setDailyBtn').addEventListener('click', () => setTimer(
 document.getElementById('setDailySingleBtn').addEventListener('click', () => setTimer('DailySingle'));
 document.getElementById('setDurationBtn').addEventListener('click', () => setTimer('Duration'));
 
-timerOffBtn.addEventListener('click', async () => {
+timerOffBtns.forEach(btn => btn.addEventListener('click', async () => {
   try {
     await chars.timermode.writeValue(enc.encode('OFF'));
     showWriteStatus('TimerMode set to OFF.', true);
   } catch (err) {
     showWriteStatus('Write failed: ' + err.message, false);
   }
-});
+}));
 
 /* --- tabs --- */
 document.querySelectorAll('.tab').forEach(tab => {
@@ -606,6 +603,9 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     tab.classList.add('active');
     document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'weekly') setOutput(generateSchedule());
+    else if (tab.dataset.tab === 'daily') updateDailyOutput();
+    else if (tab.dataset.tab === 'duration') updateDurationOutput();
   });
 });
 
@@ -637,33 +637,6 @@ function buildGrid(){
   }
 }
 buildGrid();
-
-let painting = false, paintValue = true;
-function setCell(cellEl, value){
-  const d = +cellEl.dataset.day, h = +cellEl.dataset.hour;
-  state[d][h] = value;
-  cellEl.classList.toggle('active', value);
-}
-gridEl.addEventListener('pointerdown', e => {
-  const cell = e.target.closest('.cell');
-  if (!cell) return;
-  painting = true;
-  paintValue = !cell.classList.contains('active');
-  setCell(cell, paintValue);
-  gridEl.setPointerCapture(e.pointerId);
-});
-gridEl.addEventListener('pointermove', e => {
-  if (!painting) return;
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  const cell = el && el.closest('.cell');
-  if (cell) setCell(cell, paintValue);
-});
-['pointerup','pointercancel'].forEach(evt => gridEl.addEventListener(evt, () => { painting = false; }));
-
-document.getElementById('clearBtn').addEventListener('click', () => {
-  for (let d=0; d<7; d++) for (let h=0; h<HOURS; h++) state[d][h] = false;
-  gridEl.querySelectorAll('.cell.active').forEach(c => c.classList.remove('active'));
-});
 
 function generateSchedule(){
   const runs = [];
@@ -699,22 +672,55 @@ function setOutput(str){
   writeStatus.textContent = '';
 }
 
-document.getElementById('generateBtn').addEventListener('click', () => setOutput(generateSchedule()));
+let painting = false, paintValue = true;
+function setCell(cellEl, value){
+  const d = +cellEl.dataset.day, h = +cellEl.dataset.hour;
+  state[d][h] = value;
+  cellEl.classList.toggle('active', value);
+  setOutput(generateSchedule());
+}
+gridEl.addEventListener('pointerdown', e => {
+  const cell = e.target.closest('.cell');
+  if (!cell) return;
+  painting = true;
+  paintValue = !cell.classList.contains('active');
+  setCell(cell, paintValue);
+  gridEl.setPointerCapture(e.pointerId);
+});
+gridEl.addEventListener('pointermove', e => {
+  if (!painting) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const cell = el && el.closest('.cell');
+  if (cell) setCell(cell, paintValue);
+});
+['pointerup','pointercancel'].forEach(evt => gridEl.addEventListener(evt, () => { painting = false; }));
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  for (let d=0; d<7; d++) for (let h=0; h<HOURS; h++) state[d][h] = false;
+  gridEl.querySelectorAll('.cell.active').forEach(c => c.classList.remove('active'));
+  setOutput(generateSchedule());
+});
 
 function formatTimeInput(value, fallback){
   if (!value) return fallback;
   return value.length === 5 ? value + ':00' : value;
 }
-document.getElementById('dailyGenerateBtn').addEventListener('click', () => {
+function updateDailyOutput(){
   const start = formatTimeInput(document.getElementById('dailyStart').value, '00:00:00');
   const end = formatTimeInput(document.getElementById('dailyEnd').value, '00:00:00');
   setOutput(start + '-' + end);
-});
-document.getElementById('durationGenerateBtn').addEventListener('click', () => {
+}
+function updateDurationOutput(){
   const on = formatTimeInput(document.getElementById('durationOn').value, '00:00:00');
   const off = formatTimeInput(document.getElementById('durationOff').value, '00:00:00');
   setOutput(on + '/' + off);
-});
+}
+document.getElementById('dailyStart').addEventListener('input', updateDailyOutput);
+document.getElementById('dailyEnd').addEventListener('input', updateDailyOutput);
+document.getElementById('durationOn').addEventListener('input', updateDurationOutput);
+document.getElementById('durationOff').addEventListener('input', updateDurationOutput);
+updateDailyOutput();
+
 </script>
 </body>
 </html>
