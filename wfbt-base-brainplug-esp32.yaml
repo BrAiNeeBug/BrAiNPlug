@@ -7,7 +7,7 @@ substitutions:
   localdomain: ".local"
 
 esphome:
-  comment: BrAiN_Plug_1.5.6_ESP32
+  comment: BrAiN_Plug_1.5.7_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -343,6 +343,27 @@ esp32_ble_server:
                           - switch.turn_off: child_lock
                   else:
                     - lambda: 'ESP_LOGW("ble_auth", "ChildLock write rejected - not authenticated");'
+        - id: ble_powermode_char
+          uuid: 5a2c9438-6e1b-4f83-9a02-7dfb1c5e8a3c
+          read: true
+          write: true
+          notify: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              std::string s = id(power_mode_select).current_option();
+              return std::vector<uint8_t>(s.begin(), s.end());
+          on_write:
+            then:
+              - if:
+                  condition:
+                    lambda: 'return id(ble_authed);'
+                  then:
+                    - select.set:
+                        id: power_mode_select
+                        option: !lambda 'return std::string(x.begin(), x.end());'
+                  else:
+                    - lambda: 'ESP_LOGW("ble_auth", "PowerONMode write rejected - not authenticated");'
         - id: ble_timermode_char
           uuid: 1bb6e309-c3df-4fd7-88d8-96039201b1db
           read: true
