@@ -66,7 +66,6 @@
     padding:2px 8px; border-radius:20px;
   }
   .signal-badge.wifi{ color:var(--ok); background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); }
-  .signal-badge.bt{ color:#60a5fa; background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); }
 
   .status-grid{
     display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;
@@ -189,7 +188,6 @@
       <span class="dot" id="statusDot"></span>
       <span id="statusText">Not connected</span>
       <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
-      <span class="signal-badge bt" id="btSignalBadge" style="display:none;">BT <span id="btSignalValue">–</span> dBm</span>
     </div>
     <div class="row-actions">
       <input type="text" id="pinInput" placeholder="PIN" style="max-width:120px;" autocomplete="off">
@@ -360,8 +358,6 @@ const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const wifiSignalBadge = document.getElementById('wifiSignalBadge');
 const wifiSignalValue = document.getElementById('wifiSignalValue');
-const btSignalBadge = document.getElementById('btSignalBadge');
-const btSignalValue = document.getElementById('btSignalValue');
 const relaySwitch = document.getElementById('relaySwitch');
 const relaySub = document.getElementById('relaySub');
 const childlockSwitch = document.getElementById('childlockSwitch');
@@ -403,7 +399,6 @@ function setConnectedUI(connected){
     childlockSwitch.classList.remove('on');
     powerModeSelect.value = 'Last State';
     wifiSignalBadge.style.display = 'none';
-    btSignalBadge.style.display = 'none';
   }
 }
 
@@ -496,7 +491,6 @@ async function connect(){
     await subscribeAll();
     await refreshAll();
 	startStatsPolling();
-    startBtSignalWatch();
     statusText.textContent = device.name || 'BrAiNPlug';
     setConnectedUI(true);
   } catch (err) {
@@ -508,7 +502,6 @@ async function connect(){
 
 function onDisconnected(){
   stopStatsPolling();
-  stopBtSignalWatch();
   chars = {};
   writeChain = Promise.resolve();
   setConnectedUI(false);
@@ -566,29 +559,6 @@ function stopStatsPolling(){
   }
 }
 
-// BT signal comes from the browser itself via watchAdvertisements(), which
-// is experimental (Chrome desktop/Android only, sometimes needs
-// chrome://flags/#enable-experimental-web-platform-features). If it's not
-// available we just leave the BT badge hidden instead of erroring out.
-let btSignalAbort = null;
-function startBtSignalWatch(){
-  stopBtSignalWatch();
-  if (!device || typeof device.watchAdvertisements !== 'function') return;
-  btSignalAbort = new AbortController();
-  device.addEventListener('advertisementreceived', e => {
-    if (typeof e.rssi === 'number') updateBtSignal(e.rssi);
-  });
-  device.watchAdvertisements({ signal: btSignalAbort.signal }).catch(err => {
-    console.warn('BT signal watch not available:', err.message);
-  });
-}
-function stopBtSignalWatch(){
-  if (btSignalAbort){
-    btSignalAbort.abort();
-    btSignalAbort = null;
-  }
-}
-
 async function refreshAll(){
   updateRelay((await chars.relay.readValue()).getUint8(0));
   updateChildlock((await chars.childlock.readValue()).getUint8(0));
@@ -629,10 +599,6 @@ function updatePowerMode(v){
 function updateWifiSignal(v){
   wifiSignalBadge.style.display = 'inline';
   wifiSignalValue.textContent = Math.round(v);
-}
-function updateBtSignal(v){
-  btSignalBadge.style.display = 'inline';
-  btSignalValue.textContent = Math.round(v);
 }
 function updatePower(v){
   powerValue.textContent = (Math.round(v * 10) / 10) + ' W';
