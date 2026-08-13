@@ -37,6 +37,12 @@
     color:var(--muted); margin:0 0 12px 0; font-weight:600;
   }
   .hint{ font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; }
+  .remember-row{
+    display:flex; align-items:center; gap:7px; margin-top:10px;
+    font-size:12px; color:var(--muted); cursor:pointer; user-select:none;
+    flex-wrap:wrap;
+  }
+  .remember-row input[type=checkbox]{ accent-color:var(--accent); cursor:pointer; flex:none; }
   .row-actions{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
 
   button{
@@ -203,6 +209,10 @@
       <button id="connectBtn" class="primary">Connect</button>
       <button id="disconnectBtn" disabled>Disconnect</button>
     </div>
+    <label class="remember-row" for="rememberKey">
+      <input type="checkbox" id="rememberKey">
+      Remember key on this device (stored in plain text in this browser's localStorage)
+    </label>
     <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
   </div>
 
@@ -372,6 +382,14 @@ async function hmacSha256(keyStr, msgBytes){
 let device = null, gattServer = null, chars = {};
 const enc = new TextEncoder();
 const dec = new TextDecoder();
+const LS_KEY = 'brainplug_key';
+
+const pinInput = document.getElementById('pinInput');
+const rememberKey = document.getElementById('rememberKey');
+try {
+  const saved = localStorage.getItem(LS_KEY);
+  if (saved){ pinInput.value = saved; rememberKey.checked = true; }
+} catch (err) { console.warn('localStorage read failed:', err); }
 
 const connectBtn = document.getElementById('connectBtn');
 const disconnectBtn = document.getElementById('disconnectBtn');
@@ -507,7 +525,7 @@ function queueWrite(fn, label){
 }
 
 async function connect(){
-  const pin = document.getElementById('pinInput').value;
+  const pin = pinInput.value;
   if (!pin){
     statusText.textContent = 'Enter the Key first.';
     return;
@@ -557,6 +575,10 @@ async function connect(){
 	startStatsPolling();
     statusText.textContent = device.name || 'BrAiNPlug';
     setConnectedUI(true);
+    try {
+      if (rememberKey.checked) localStorage.setItem(LS_KEY, pin);
+      else localStorage.removeItem(LS_KEY);
+    } catch (err) { console.warn('localStorage write failed:', err); }
   } catch (err) {
     statusText.textContent = 'Connection failed: ' + err.message;
     statusDot.classList.add('err');
@@ -720,6 +742,11 @@ powerModeSelect.addEventListener('change', async () => {
 
 connectBtn.addEventListener('click', connect);
 disconnectBtn.addEventListener('click', disconnect);
+rememberKey.addEventListener('change', () => {
+  if (!rememberKey.checked){
+    try { localStorage.removeItem(LS_KEY); } catch (err) { console.warn('localStorage remove failed:', err); }
+  }
+});
 
 async function setTimer(mode){
   const value = document.getElementById('output').value.trim();
