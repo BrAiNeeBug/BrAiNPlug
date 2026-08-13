@@ -150,6 +150,25 @@
     border:1px solid var(--border); border-radius:7px;
     padding:8px 10px; color-scheme: dark;
   }
+
+  @media (max-width: 480px){
+    body{ padding:12px; }
+    h1{ font-size:17px; }
+    .subtitle{ font-size:12.5px; }
+    .panel{ padding:12px; border-radius:9px; }
+    .row-actions{ flex-direction:column; align-items:stretch; }
+    .row-actions button{ width:100%; padding:12px 14px; font-size:14px; }
+    .tabs{ gap:2px; flex-wrap:wrap; }
+    .tab{ font-size:12px; padding:8px 6px; }
+    /* Grid-Zellen größer für Touch, horizontales Wischen bleibt über grid-scroll */
+    .cell{ height:22px; }
+    .hour-label{ line-height:22px; height:22px; }
+    .grid-outer{ min-width:560px; }
+    /* Zeit-Eingaben untereinander statt nebeneinander gequetscht */
+    .time-row{ flex-direction:column; align-items:stretch; gap:10px; }
+    .time-row button{ width:100%; padding:12px; }
+    input[type=time]{ width:100%; padding:10px; font-size:14px; }
+  }
 </style>
 </head>
 <body>
@@ -167,7 +186,7 @@
   <div class="panel">
     <p class="panel-title">Schedule grid</p>
     <p class="hint" style="margin-top:0; margin-bottom:12px;">Click or drag across the grid to paint when the plug should be on. Each column is one weekday, each row is one hour.</p>
-    <div class="grid-scroll">
+    <div class="grid-scroll" id="gridScroll">
       <div class="grid-outer" id="grid"></div>
     </div>
     <div class="legend">
@@ -284,8 +303,13 @@ function buildGrid(){
 }
 buildGrid();
 
-let painting = false;
-let paintValue = true;
+let painting = false, paintValue = true;
+let touchGestureMode = null; // 'paint' | 'scroll' | null while undecided (touch only)
+let touchStartX = 0, touchStartY = 0, touchLastX = 0, touchLastY = 0;
+let touchHoldTimer = null;
+const TOUCH_HOLD_MS = 160;      // hold this long without moving -> paint mode
+const TOUCH_MOVE_THRESHOLD = 8; // px of early movement that counts as "scrolling"
+const gridScrollEl = document.getElementById('gridScroll');
 
 function setCell(cellEl, value){
   const d = +cellEl.dataset.day, h = +cellEl.dataset.hour;
@@ -296,22 +320,67 @@ function setCell(cellEl, value){
 gridEl.addEventListener('pointerdown', e => {
   const cell = e.target.closest('.cell');
   if (!cell) return;
-  painting = true;
   paintValue = !cell.classList.contains('active');
-  setCell(cell, paintValue);
-  gridEl.setPointerCapture(e.pointerId);
+
+  if (e.pointerType === 'touch'){
+    // Don't paint immediately - if the finger moves before the hold
+    // delay is up, that's a scroll swipe, not a paint gesture.
+    touchGestureMode = null;
+    touchStartX = e.clientX; touchStartY = e.clientY; touchLastX = e.clientX; touchLastY = e.clientY;
+    clearTimeout(touchHoldTimer);
+    touchHoldTimer = setTimeout(() => {
+      if (touchGestureMode === null){
+        touchGestureMode = 'paint';
+        painting = true;
+        setCell(cell, paintValue);
+        gridEl.setPointerCapture(e.pointerId);
+      }
+    }, TOUCH_HOLD_MS);
+  } else {
+    painting = true;
+    setCell(cell, paintValue);
+    gridEl.setPointerCapture(e.pointerId);
+  }
 });
 
 gridEl.addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch'){
+    if (touchGestureMode === null){
+      const dx = e.clientX - touchStartX;
+      const dy = e.clientY - touchStartY;
+      if (Math.abs(dx) < TOUCH_MOVE_THRESHOLD && Math.abs(dy) < TOUCH_MOVE_THRESHOLD) return;
+      // Moved before the hold delay fired - treat as a scroll swipe.
+      clearTimeout(touchHoldTimer);
+      touchGestureMode = 'scroll';
+    }
+    if (touchGestureMode === 'scroll'){
+      // touch-action:none stops the browser's own scrolling on the grid,
+      // so replicate both page-scroll (vertical) and the grid's own
+      // horizontal scroll (to reveal Fri-Sun) manually while the finger moves.
+      window.scrollBy(0, touchLastY - e.clientY);
+      gridScrollEl.scrollLeft -= (e.clientX - touchLastX);
+      touchLastX = e.clientX;
+      touchLastY = e.clientY;
+      return;
+    }
+  }
   if (!painting) return;
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const cell = el && el.closest('.cell');
   if (cell) setCell(cell, paintValue);
 });
 
-['pointerup','pointercancel'].forEach(evt =>
-  gridEl.addEventListener(evt, () => { painting = false; })
-);
+gridEl.addEventListener('pointerup', e => {
+  clearTimeout(touchHoldTimer);
+  if (e.pointerType === 'touch' && touchGestureMode === null){
+    // Released before the hold delay and before any real movement - plain tap.
+    const cell = e.target.closest('.cell');
+    if (cell) setCell(cell, paintValue);
+  }
+  painting = false;
+  touchGestureMode = null;
+});
+gridEl.addEventListener('pointercancel', () => { clearTimeout(touchHoldTimer); painting = false; touchGestureMode = null; });
 
 document.getElementById('clearBtn').addEventListener('click', () => {
   for (let d=0; d<7; d++) for (let h=0; h<HOURS; h++) state[d][h] = false;
