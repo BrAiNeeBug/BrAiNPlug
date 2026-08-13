@@ -102,6 +102,15 @@
   }
   .pmode-select:disabled{ opacity:0.4; cursor:not-allowed; }
 
+  /* --- timer panel: collapsible summary header --- */
+  .timer-summary{
+    display:flex; align-items:center; justify-content:space-between;
+    cursor:pointer; user-select:none; -webkit-user-select:none;
+  }
+  .timer-summary .status-line{ font-size:13px; font-weight:600; }
+  .timer-chevron{ color:var(--muted); font-size:11px; transition: transform 120ms; flex:none; margin-left:8px; }
+  .timer-body{ margin-top:14px; }
+
   /* --- tabs (schedule builder, same as wsb.html) --- */
   .tabs{ display:flex; align-items:center; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
   .tab{
@@ -179,7 +188,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — BLE-Control (1.5.8)</h1>
+  <h1>BrAiNPlug — BLE-Control (1.5.9)</h1>
   <p class="subtitle">Controls a BrAiNPlug ESP32 (e.g. Nous A8T) via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a></p>
 
   <div class="panel">
@@ -190,12 +199,12 @@
       <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
     </div>
     <div class="row-actions">
-      <input type="text" id="pinInput" placeholder="PIN" style="max-width:120px;" autocomplete="off">
+      <input type="password" id="pinInput" placeholder="Key (min. 12 chars)" style="max-width:220px;" autocomplete="new-password" minlength="12">
       <button id="connectBtn" class="primary">Connect</button>
       <button id="disconnectBtn" disabled>Disconnect</button>
     </div>
     <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
-    <p class="hint">Enter your Plug-PIN and Connect.</p>
+    <p class="hint">Enter your Plug-Key (min. 12 characters, matches the <code>ble_pin</code> secret on the device) and Connect.</p>
   </div>
 
   <div class="panel">
@@ -254,53 +263,62 @@
   </div>
 
   <div class="panel">
-    <p class="panel-title">Timer / schedule</p>
-    <div class="tabs">
-      <button class="tab active" data-tab="weekly">Weekly</button>
-      <button class="tab" data-tab="daily">Daily</button>
-      <button class="tab" data-tab="duration">Duration</button>
-      <button class="timer-off-link" disabled>Turn-Timer-Off</button>
+    <div class="timer-summary" id="timerSummary" role="button" tabindex="0" aria-expanded="false">
+      <div class="status-line">
+        <span class="dot" id="timerDot"></span>
+        <span id="timerSummaryText">Timer: –</span>
+      </div>
+      <span class="timer-chevron" id="timerChevron">▸</span>
     </div>
 
-    <div class="tab-panel active" id="tab-weekly">
-      <p class="hint" style="margin-top:0; margin-bottom:12px;">Click or drag across the grid to paint when the plug should be on. Each column is one weekday, each row is one hour.</p>
-      <div class="grid-scroll" id="gridScroll"><div class="grid-outer" id="grid"></div></div>
-      <div class="row-actions">
-        <button id="clearBtn">Clear grid</button>
+    <div class="timer-body" id="timerBody" style="display:none;">
+      <div class="tabs">
+        <button class="tab active" data-tab="weekly">Weekly</button>
+        <button class="tab" data-tab="daily">Daily</button>
+        <button class="tab" data-tab="duration">Duration</button>
+        <button class="timer-off-link" disabled>Turn-Timer-Off</button>
       </div>
-      <div class="row-actions">
-        <button id="setWeeklyBtn" class="primary" disabled>Set as Weekly</button>
-        <button id="setWeeklySingleBtn" class="primary" disabled>Set as WeeklySingle</button>
-      </div>
-      <p class="hint">The string below updates live as you paint. For a range crossing midnight, edit it by hand before pressing Set.</p>
-    </div>
 
-    <div class="tab-panel" id="tab-daily">
-      <div class="time-row">
-        <div class="time-field"><label for="dailyStart">ON at</label><input type="time" id="dailyStart" step="1" value="08:00:00"></div>
-        <div class="time-field"><label for="dailyEnd">OFF at</label><input type="time" id="dailyEnd" step="1" value="18:00:00"></div>
+      <div class="tab-panel active" id="tab-weekly">
+        <p class="hint" style="margin-top:0; margin-bottom:12px;">Click or drag across the grid to paint when the plug should be on. Each column is one weekday, each row is one hour.</p>
+        <div class="grid-scroll" id="gridScroll"><div class="grid-outer" id="grid"></div></div>
+        <div class="row-actions">
+          <button id="clearBtn">Clear grid</button>
+        </div>
+        <div class="row-actions">
+          <button id="setWeeklyBtn" class="primary" disabled>Set as Weekly</button>
+          <button id="setWeeklySingleBtn" class="primary" disabled>Set as WeeklySingle</button>
+        </div>
+        <p class="hint">The string below updates live as you paint. For a range crossing midnight, edit it by hand before pressing Set.</p>
       </div>
-      <div class="row-actions">
-        <button id="setDailyBtn" class="primary" disabled>Set as Daily</button>
-        <button id="setDailySingleBtn" class="primary" disabled>Set as DailySingle</button>
-      </div>
-      <p class="hint"><b>Daily</b> keeps forcing the state the whole window (survives reboot); <b>DailySingle</b> only fires once at each time. Doesn't have to be same-day; e.g. 22:00:00-06:00:00 crosses midnight fine.</p>
-    </div>
 
-    <div class="tab-panel" id="tab-duration">
-      <div class="time-row">
-        <div class="time-field"><label for="durationOn">ON for</label><input type="time" id="durationOn" step="1" value="00:00:10"></div>
-        <div class="time-field"><label for="durationOff">OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05"></div>
+      <div class="tab-panel" id="tab-daily">
+        <div class="time-row">
+          <div class="time-field"><label for="dailyStart">ON at</label><input type="time" id="dailyStart" step="1" value="08:00:00"></div>
+          <div class="time-field"><label for="dailyEnd">OFF at</label><input type="time" id="dailyEnd" step="1" value="18:00:00"></div>
+        </div>
+        <div class="row-actions">
+          <button id="setDailyBtn" class="primary" disabled>Set as Daily</button>
+          <button id="setDailySingleBtn" class="primary" disabled>Set as DailySingle</button>
+        </div>
+        <p class="hint"><b>Daily</b> keeps forcing the state the whole window (survives reboot); <b>DailySingle</b> only fires once at each time. Doesn't have to be same-day; e.g. 22:00:00-06:00:00 crosses midnight fine.</p>
       </div>
-      <div class="row-actions">
-        <button id="setDurationBtn" class="primary" disabled>Set as Duration</button>
-      </div>
-      <p class="hint">The plug repeats this ON/OFF cycle continuously. Not a clock time — a duration (HH:MM:SS each).</p>
-    </div>
 
-    <p class="panel-title" style="margin-top:16px;">TimerConf string</p>
-    <textarea id="output" spellcheck="false" rows="2" placeholder="Fills in automatically as you paint/pick above, or type/paste one directly."></textarea>
-    <p class="status" id="writeStatus"></p>
+      <div class="tab-panel" id="tab-duration">
+        <div class="time-row">
+          <div class="time-field"><label for="durationOn">ON for</label><input type="time" id="durationOn" step="1" value="00:00:10"></div>
+          <div class="time-field"><label for="durationOff">OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05"></div>
+        </div>
+        <div class="row-actions">
+          <button id="setDurationBtn" class="primary" disabled>Set as Duration</button>
+        </div>
+        <p class="hint">The plug repeats this ON/OFF cycle continuously. Not a clock time — a duration (HH:MM:SS each).</p>
+      </div>
+
+      <p class="panel-title" style="margin-top:16px;">TimerConf string</p>
+      <textarea id="output" spellcheck="false" rows="2" placeholder="Fills in automatically as you paint/pick above, or type/paste one directly."></textarea>
+      <p class="status" id="writeStatus"></p>
+    </div>
   </div>
 </div>
 
@@ -321,10 +339,14 @@ const CHAR_UUIDS = {
   energy:    'd3134b34-4635-4d72-9e50-49053be2bc19',
   actualduration: 'f848732a-d062-457c-aa8e-66c1b5e5fa2e',
   wifisignal: '8e0f6a15-2b9d-4a1e-9c3f-7d5b0e2a4f6c',
+  timerstatus: '4195b034-6b66-4b12-82d2-5a8e28d4984f',
 };
 
 // Muss >= dem größtmöglichen Backoff-Delay im YAML sein (dort aktuell Cap bei 60s).
 const AUTH_TIMEOUT_MS = 65000;
+// 12 Zeichen aus [A-Za-z0-9] (~71.5 bit) halten einem Offline-HMAC-SHA256-Bruteforce
+// selbst bei ~100 Mrd. Versuchen/s (großzügig geschätzte GPU-Farm) >1 Jahr stand.
+const MIN_KEY_LEN = 12;
 
 function waitForAuthNotify(timeoutMs){
   return new Promise((resolve, reject) => {
@@ -368,6 +390,11 @@ const currentValue = document.getElementById('currentValue');
 const energyValue = document.getElementById('energyValue');
 const timerModeValue = document.getElementById('timerModeValue');
 const actualDurationValue = document.getElementById('actualDurationValue');
+const timerSummary = document.getElementById('timerSummary');
+const timerBody = document.getElementById('timerBody');
+const timerChevron = document.getElementById('timerChevron');
+const timerDot = document.getElementById('timerDot');
+const timerSummaryText = document.getElementById('timerSummaryText');
 const timerOffBtns = document.querySelectorAll('.timer-off-link');
 const writeStatus = document.getElementById('writeStatus');
 const setBtns = ['setWeeklyBtn','setWeeklySingleBtn','setDailyBtn','setDailySingleBtn','setDurationBtn'].map(id => document.getElementById(id));
@@ -399,6 +426,40 @@ function setConnectedUI(connected){
     childlockSwitch.classList.remove('on');
     powerModeSelect.value = 'Last State';
     wifiSignalBadge.style.display = 'none';
+    lastTimerMode = ''; lastTimerStatus = '';
+    updateTimerSummary('', '');
+  }
+}
+
+/* --- timer panel: collapsible header + auto-selected tab --- */
+let timerCollapsed = true;
+function setTimerCollapsed(collapsed){
+  timerCollapsed = collapsed;
+  timerBody.style.display = collapsed ? 'none' : '';
+  timerChevron.textContent = collapsed ? '▸' : '▾';
+  timerSummary.setAttribute('aria-expanded', String(!collapsed));
+}
+timerSummary.addEventListener('click', () => setTimerCollapsed(!timerCollapsed));
+timerSummary.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setTimerCollapsed(!timerCollapsed); }
+});
+
+const MODE_TO_TAB = {
+  Daily: 'daily', DailySingle: 'daily',
+  Weekly: 'weekly', WeeklySingle: 'weekly',
+  Duration: 'duration',
+};
+let lastTimerMode = '', lastTimerStatus = '';
+function updateTimerSummary(modeStr, statusStr){
+  timerDot.classList.remove('connected', 'err');
+  if (!modeStr || modeStr === 'OFF'){
+    timerSummaryText.textContent = 'Timer: OFF';
+  } else if (statusStr === 'No time sync'){
+    timerDot.classList.add('err');
+    timerSummaryText.textContent = 'Timer: ' + modeStr + ' — no time sync';
+  } else {
+    timerDot.classList.add('connected');
+    timerSummaryText.textContent = 'Timer: ' + modeStr + ' (active)';
   }
 }
 
@@ -449,7 +510,11 @@ function queueWrite(fn, label){
 async function connect(){
   const pin = document.getElementById('pinInput').value;
   if (!pin){
-    statusText.textContent = 'Enter the PIN first.';
+    statusText.textContent = 'Enter the Key first.';
+    return;
+  }
+  if (pin.length < MIN_KEY_LEN){
+    statusText.textContent = `Key too short (min. ${MIN_KEY_LEN} chars).`;
     return;
   }
   try {
@@ -522,6 +587,8 @@ async function subscribeAll(){
   await chars.timermode.startNotifications();
   chars.powermode.addEventListener('characteristicvaluechanged', e => updatePowerMode(dec.decode(e.target.value)));
   await chars.powermode.startNotifications();
+  chars.timerstatus.addEventListener('characteristicvaluechanged', e => updateTimerStatus(dec.decode(e.target.value)));
+  await chars.timerstatus.startNotifications();
 }
 
 let statsPollTimer = null;
@@ -572,6 +639,11 @@ async function refreshAll(){
   updateEnergy((await chars.energy.readValue()).getFloat32(0, true));
   updateWifiSignal((await chars.wifisignal.readValue()).getFloat32(0, true));
   try {
+    updateTimerStatus(dec.decode(await chars.timerstatus.readValue()));
+  } catch (err) {
+    console.warn('TimerStatus read failed:', err);
+  }
+  try {
     const confStr = dec.decode(await chars.timerconf.readValue());
     applyTimerConfToUI(modeStr, confStr);
   } catch (err) {
@@ -588,7 +660,14 @@ function updateChildlock(v){
   childlockSwitch.classList.toggle('on', v === 1);
 }
 function updateTimerMode(v){
-  timerModeValue.textContent = v || 'OFF';
+  lastTimerMode = v || 'OFF';
+  timerModeValue.textContent = lastTimerMode;
+  activateTab(MODE_TO_TAB[lastTimerMode] || 'weekly');
+  updateTimerSummary(lastTimerMode, lastTimerStatus);
+}
+function updateTimerStatus(v){
+  lastTimerStatus = v || '';
+  updateTimerSummary(lastTimerMode, lastTimerStatus);
 }
 function updateActualDuration(v){
   actualDurationValue.textContent = v || '–';
@@ -673,16 +752,15 @@ timerOffBtns.forEach(btn => btn.addEventListener('click', async () => {
 }));
 
 /* --- tabs --- */
+function activateTab(tabName){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tabName));
+  if (tabName === 'weekly') setOutput(generateSchedule());
+  else if (tabName === 'daily') updateDailyOutput();
+  else if (tabName === 'duration') updateDurationOutput();
+}
 document.querySelectorAll('.tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    tab.classList.add('active');
-    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
-    if (tab.dataset.tab === 'weekly') setOutput(generateSchedule());
-    else if (tab.dataset.tab === 'daily') updateDailyOutput();
-    else if (tab.dataset.tab === 'duration') updateDurationOutput();
-  });
+  tab.addEventListener('click', () => activateTab(tab.dataset.tab));
 });
 
 /* --- weekly grid (same logic as wsb.html) --- */
