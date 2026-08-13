@@ -7,11 +7,11 @@ substitutions:
   localdomain: ".local"
 
 esphome:
-  comment: BrAiN_Plug_1.5.7_ESP32
+  comment: BrAiN_Plug_1.5.8_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
-    - ble_auth.h
+    - brainplug_components/ble_auth.h
   on_boot:
     priority: -100
     then:
@@ -442,6 +442,13 @@ esp32_ble_server:
               if (!id(ble_authed)) return std::vector<uint8_t>{};
               std::string s = id(relay_duration_display).state;
               return std::vector<uint8_t>(s.begin(), s.end());
+        - id: ble_wifisignal_char
+          uuid: 8e0f6a15-2b9d-4a1e-9c3f-7d5b0e2a4f6c
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(wifi_signal_rssi).state).get_data();
 
 time:
   - platform: sntp
@@ -659,6 +666,7 @@ text_sensor:
     icon: "mdi:run"
     web_server:
       sorting_weight: 6
+    update_interval: 5min
   - platform: template
     name: "WeeklyStatus"
     id: weekly_status_display
@@ -816,6 +824,7 @@ switch:
           }
     web_server:
       sorting_weight: 1
+    device_class: outlet
   - platform: template
     name: "Bluetooth"
     id: bluetooth_enable
