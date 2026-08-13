@@ -7,7 +7,7 @@ substitutions:
   localdomain: ".local"
 
 esphome:
-  comment: BrAiN_Plug_1.5.8_ESP32
+  comment: BrAiN_Plug_1.5.9_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -96,6 +96,10 @@ globals:
     type: uint32_t
     restore_value: false
     initial_value: "0"
+  - id: time_synced
+    type: bool
+    restore_value: false
+    initial_value: "false"
 
 ota:
   - platform: esphome
@@ -222,9 +226,12 @@ web_server:
 esp32_ble:
   enable_on_boot: false  # BLE stack stays off until the "Bluetooth" switch enables it
 esp32_ble_server:
-  manufacturer: "n/a"
-  model: "n/a"
-  firmware_version: "n/a"
+  manufacturer:
+    data: n/a
+  model:
+    data: n/a
+  firmware_version:
+    data: n/a
   on_connect:
     - lambda: |-
         id(ble_authed) = false;
@@ -449,7 +456,24 @@ esp32_ble_server:
             data: !lambda |-
               if (!id(ble_authed)) return std::vector<uint8_t>{};
               return bytebuffer::ByteBuffer::wrap(id(wifi_signal_rssi).state).get_data();
+        - id: ble_timerstatus_char
+          uuid: 4195b034-6b66-4b12-82d2-5a8e28d4984f
+          read: true
+          notify: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              std::string s;
+              if (id(timer_mode) == 0) {
+                s = "OFF";
+              } else if (!id(time_synced)) {
+                s = "No time sync";
+              } else {
+                s = "Active";
+              }
+              return std::vector<uint8_t>(s.begin(), s.end());
 
+  max_clients: 2
 time:
   - platform: sntp
     id: timesrc
@@ -459,6 +483,7 @@ interval:
     then:
       - lambda: |
           auto now = id(timesrc).now();
+          id(time_synced) = now.is_valid();
           if (!now.is_valid()) return;
 
           if (id(timer_mode) == 0) {
@@ -575,6 +600,8 @@ interval:
                      matched_today, id(relay_physical).state ? "ON" : "OFF");
             id(weekly_status_str) = std::string(status_buf);
           }
+      - ble_server.characteristic.notify:
+          id: ble_timerstatus_char
 
   - interval: 5s
     then:
