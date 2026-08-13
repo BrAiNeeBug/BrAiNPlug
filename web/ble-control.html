@@ -72,6 +72,7 @@
     padding:2px 8px; border-radius:20px;
   }
   .signal-badge.wifi{ color:var(--ok); background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); }
+  .signal-badge.bt{ color:#60a5fa; background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); }
 
   .status-grid{
     display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;
@@ -203,6 +204,7 @@
       <span class="dot" id="statusDot"></span>
       <span id="statusText">Not connected</span>
       <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
+      <span class="signal-badge bt" id="btSignalBadge" style="display:none;" title="Placeholder — real BLE RSSI not wired up yet, see esp_ble_gap_read_rssi() saga">BT –0 dBm</span>
     </div>
     <div class="row-actions">
       <input type="password" id="pinInput" placeholder="Key (min. 12 chars)" style="max-width:220px;" autocomplete="new-password" minlength="12">
@@ -210,7 +212,8 @@
       <button id="disconnectBtn" disabled>Disconnect</button>
     </div>
     <label class="remember-row" for="rememberKey">
-      <input type="checkbox" id="rememberKey">Remember Key
+      <input type="checkbox" id="rememberKey">
+      Remember-Key
     </label>
     <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
   </div>
@@ -396,6 +399,7 @@ const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const wifiSignalBadge = document.getElementById('wifiSignalBadge');
 const wifiSignalValue = document.getElementById('wifiSignalValue');
+const btSignalBadge = document.getElementById('btSignalBadge');
 const relaySwitch = document.getElementById('relaySwitch');
 const relaySub = document.getElementById('relaySub');
 const childlockSwitch = document.getElementById('childlockSwitch');
@@ -442,6 +446,7 @@ function setConnectedUI(connected){
     childlockSwitch.classList.remove('on');
     powerModeSelect.value = 'Last State';
     wifiSignalBadge.style.display = 'none';
+    btSignalBadge.style.display = 'none';
     lastTimerMode = ''; lastTimerStatus = '';
     updateTimerSummary('', '');
   }
@@ -574,6 +579,7 @@ async function connect(){
 	startStatsPolling();
     statusText.textContent = device.name || 'BrAiNPlug';
     setConnectedUI(true);
+    btSignalBadge.style.display = 'inline';
     try {
       if (rememberKey.checked) localStorage.setItem(LS_KEY, pin);
       else localStorage.removeItem(LS_KEY);
