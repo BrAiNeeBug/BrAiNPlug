@@ -13,6 +13,9 @@ The firmware is designed to work with Home Assistant through ESPHome and provide
 **🔗 [Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/web/wsb.html)**
 Paint your weekly ON/OFF schedule on a grid.
 
+**🔗 [Weekly Schedule Builder](https://braineebug.github.io/BrAiNPlug/web/TASM0TA-Shedule.html)**
+For Tasm0ta-Experts use this PRO-Sheduler!
+
 **🔗 [BLE-Dashboard](https://braineebug.github.io/BrAiNPlug/web/ble-control.html)**
 Connect your Plug via Bluetooth. (THIS 1.5.x+esp32_only!)
 
