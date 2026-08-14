@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Tasmota Ultra Mega Scheduler 9000</title>
+<title>Tasm0ta Ultra Mega Sheduler 9000</title>
 <style>
 :root{
   --bg:#e8e8e8;--panel:#f7f7f7;--panel2:#fff;--border:#aaa;--dark:#222;
@@ -164,21 +164,21 @@ td{border:1px solid #343d42;padding:4px;vertical-align:middle}
 </head>
 <body>
 <div class="topbar">
-  <div class="brand">Tasmota WebUI :: Scheduler</div>
-  <small>TimerConf Builder / Relay Scheduling Interface / Build 0xDEADBEEF</small>
+  <div class="brand">Tasm0ta WebUI :: Sheduler</div>
+  <small>TimerConf Builder / Relay Sheduling Interface / Build 0xDEADBEEF</small>
 </div>
 
 <div class="wrap">
   <div class="nav">
-    <button class="active" onclick="tab('schedule',this)">Scheduler</button>
+    <button class="active" onclick="tab('schedule',this)">Sheduler</button>
     <button onclick="tab('devices',this)">Devices</button>
-    <button onclick="tab('cosmos',this)">Cosmic Nonsense</button>
+    <button onclick="tab('cosmos',this)">Cosmic</button>
     <button onclick="tab('output',this)">Console</button>
   </div>
 
   <section id="schedule">
     <div class="notice">
-      <b>Note:</b> This scheduler still generates a standard BrAiNPlug Weekly TimerString. Everything else here is not required for normal scheduling. But where’s the fun in that? 😎
+      <b>Note:</b> This sheduler generates a standard BrAiNPlug TimerString. If no day is active below, it builds a Daily entry (HH:MM:SS-HH:MM:SS) from the global times; if one or more days are active, it builds Weekly entries (HHMM-HHMM:DayTokens). Enable "Duration Format" to instead output an ON/OFF duration cycle (HH:MM:SS/HH:MM:SS) from the Duration Cycle fields.
     </div>
 
     <div class="panel">
@@ -201,6 +201,11 @@ td{border:1px solid #343d42;padding:4px;vertical-align:middle}
         </div>
         <div class="field"><label>Global ON Time</label><input type="time" id="defaultOn" value="08:00"></div>
         <div class="field"><label>Global OFF Time</label><input type="time" id="defaultOff" value="12:00"></div>
+        <div class="field"><label>Duration Cycle — ON for</label><input type="time" id="durationOn" step="1" value="00:00:10"></div>
+        <div class="field"><label>Duration Cycle — OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05"></div>
+        <div class="field"><label>Duration Format</label>
+          <label style="font-weight:normal"><input type="checkbox" id="durmode"> use ON/OFF duration cycle instead of Weekly/Daily</label>
+        </div>
       </div>
     </div>
 
@@ -288,13 +293,13 @@ td{border:1px solid #343d42;padding:4px;vertical-align:middle}
     <div class="panel">
       <div class="title">Cosmic Precision Mode™</div>
       <div class="content">
-        <div class="warning"><b>NOTE:</b> These diagnostics are optional and do not affect the generated TimerConf string.</div>
+        <div class="warning"><b>NOTE:</b> These settings do not affect the generated TimerConf string.</div>
         <div class="kack" style="margin-top:8px">
-          SCHEDULER STATUS<br>
+          SHEDULER STATUS<br>
           <span class="green">CONFIGURATION....... VALID</span><br>
           <span class="green">TIMER STRING........ READY</span><br>
-          <span class="yellow">DIAGNOSTICS......... OPTIONAL</span><br>
-          <span class="yellow">HUMOR MODULE........ ENABLED</span>
+          <span class="yellow">SYNC STATE........... NOMINAL</span><br>
+          <span class="yellow">AUX MODULE........... ENABLED</span>
         </div>
 
         <p><label><input type="checkbox" checked> Account for Earth's magnetic field</label></p>
@@ -304,11 +309,11 @@ td{border:1px solid #343d42;padding:4px;vertical-align:middle}
         <p><label><input type="checkbox"> Venus affects the relay coil</label></p>
         <p><label><input type="checkbox" checked> Weekday probably has an opinion</label></p>
         <div class="crap">
-          SCHEDULER DIAGNOSTICS<br>
-          <span class="green">SCHEDULER........... READY</span><br>
-          <span class="yellow">MOON................ ${moon}</span><br>
-          <span class="green">RELAY TIMING........ CONFIGURED</span><br>
-          <span class="red">* decorative diagnostics only</span>
+          SHEDULER DIAGNOSTICS<br>
+          <span class="green">SHEDULER............. READY</span><br>
+          <span class="yellow">MOON................. ${moon}</span><br>
+          <span class="green">RELAY TIMING......... CONFIGURED</span><br>
+          <span class="red">STATUS: NOMINAL</span>
         </div>
       </div>
     </div>
@@ -316,7 +321,7 @@ td{border:1px solid #343d42;padding:4px;vertical-align:middle}
 
   <section id="output" class="hidden">
     <div class="panel">
-      <div class="title">Tasmota Console / Scheduler Output</div>
+      <div class="title">Tasm0ta Console / Sheduler Output</div>
       <div class="content">
         <textarea id="result" spellcheck="false" placeholder="No timer string generated yet."></textarea>
         <br><br>
@@ -326,13 +331,13 @@ td{border:1px solid #343d42;padding:4px;vertical-align:middle}
       </div>
     </div>
     <div class="panel">
-      <div class="title">Pseudo Diagnostics</div>
+      <div class="title">Diagnostics</div>
       <div class="content mono" id="diag">No data.</div>
     </div>
   </section>
 
   <div class="footer">
-    Tasmota-style Scheduler Interface • Standard TimerConf output • Diagnostics are optional
+    Tasm0ta-style Sheduler Interface • Standard TimerConf output • Diagnostics included below
   </div>
 </div>
 
@@ -342,7 +347,7 @@ const days=[
   ["Fr","Friday"],["Sa","Saturday"],["Su","Sunday"]
 ];
 const moon=["New Moon","Waxing Crescent","First Quarter","Waxing Gibbous","Full Moon","Waning Gibbous","Last Quarter","Waning Crescent"];
-const geo=["quiet","slightly active","unsettled","stormy","NONSENSE"];
+const geo=["quiet","slightly active","unsettled","stormy","unclassified"];
 
 function tab(id,btn){
   document.querySelectorAll("section").forEach(x=>x.classList.add("hidden"));
@@ -376,31 +381,70 @@ function copyDefaults(){
 function clearDays(){
   document.querySelectorAll(".active").forEach(x=>x.checked=false);
   document.getElementById("result").value="";
-  flash("Scheduler cleared.");
+  flash("Sheduler cleared.");
 }
-function t(v){return (v||"00:00").replace(":","")}
+function fmtHMS(v){
+  if(!v) return "00:00:00";
+  return v.length===5 ? v+":00" : v;
+}
+function fmtHHMM(v){
+  if(!v) return "0000";
+  return v.slice(0,5).replace(":","");
+}
 function generate(){
-  const entries=[];
-  document.querySelectorAll(".dayrow").forEach((r,i)=>{
-    if(!r.querySelector(".active").checked)return;
-    const on=t(r.querySelector(".on").value),off=t(r.querySelector(".off").value);
-    if(on && off) entries.push(on+"-"+off+":"+days[i][0]);
-  });
-  const str=entries.join(";");
+  const durMode=document.getElementById("durmode").checked;
+  const activeRows=[...document.querySelectorAll(".dayrow")].filter(r=>r.querySelector(".active").checked);
+  let str, mode;
+
+  if(durMode){
+    const on=fmtHMS(document.getElementById("durationOn").value);
+    const off=fmtHMS(document.getElementById("durationOff").value);
+    str=on+"/"+off;
+    mode="Duration";
+  } else if(activeRows.length===0){
+    const on=fmtHMS(document.getElementById("defaultOn").value);
+    const off=fmtHMS(document.getElementById("defaultOff").value);
+    str=on+"-"+off;
+    mode="Daily";
+  } else {
+    const merged=new Map();
+    document.querySelectorAll(".dayrow").forEach((r,i)=>{
+      if(!r.querySelector(".active").checked)return;
+      const onVal=r.querySelector(".on").value, offVal=r.querySelector(".off").value;
+      if(!onVal||!offVal)return;
+      const key=fmtHHMM(onVal)+"-"+fmtHHMM(offVal);
+      if(!merged.has(key)) merged.set(key,[]);
+      merged.get(key).push(days[i][0]);
+    });
+    const entries=[];
+    for(const [key,list] of merged.entries()) entries.push(key+":"+list.join(""));
+    str=entries.join(";");
+    mode="Weekly";
+  }
+
   document.getElementById("result").value=str;
+  const entryCount=str?str.split(";").length:0;
   document.getElementById("diag").innerHTML=
     "DEVICE ........ "+document.getElementById("device").value+"<br>"+
     "PROFILE ....... "+document.getElementById("profile").value+"<br>"+
-    "ENTRIES ....... "+entries.length+"<br>"+
+    "TIMER MODE .... "+mode+"<br>"+
+    "TIMERMODE ..... "+(mode==="Weekly"?"Weekly / WeeklySingle":mode==="Daily"?"Daily / DailySingle":"Duration")+"<br>"+
+    "ENTRIES ....... "+entryCount+"<br>"+
     "TEMP OFFSET ... "+document.getElementById("temp").value+" °C<br>"+
     "HUMIDITY ...... "+document.getElementById("hum").value+" %<br>"+
     "MAINS ......... "+document.getElementById("freq").value+" Hz<br>"+
     "ROUTER ........ "+document.getElementById("router").value+"<br>"+
     "COFFEE ........ "+document.getElementById("coffee").value+" %<br>"+
-    "GEOMAGNETIC .... "+geo[2]+" (decorative)<br>"+
+    "GEOMAGNETIC .... "+geo[2]+"<br>"+
     "DIAGNOSTICS ..... NORMAL<br>"+
-    "CONFIG STATUS ... VALID";
-  flash("TimerConf generated. Optional diagnostics are not written into the TimerConf string.");
+    "CONFIG STATUS ... VALID<br>"+
+    "EARTH MAGNETIC FIELD ... accounted for<br>"+
+    "MOON PHASE .............. accounted for<br>"+
+    "SOLAR WIND ............... not accounted for<br>"+
+    "JUPITER ANGLE ............ wrong<br>"+
+    "VENUS / RELAY COIL ....... affected<br>"+
+    "WEEKDAY OPINION .......... probably has one";
+  flash("TimerConf generated.");
   tab("output",document.querySelectorAll(".nav button")[3]);
 }
 function flash(s){document.getElementById("msg").textContent=s}
