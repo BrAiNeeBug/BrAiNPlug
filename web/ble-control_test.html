@@ -33,7 +33,6 @@
     border-radius:10px; padding:16px; margin-bottom:16px;
   }
   
-  /* Modern Flex-Header für Panels */
   .panel-header{
     display: flex;
     align-items: center;
@@ -54,12 +53,6 @@
   }
 
   .hint{ font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; }
-  .remember-row{
-    display:flex; align-items:center; gap:7px; margin-top:10px;
-    font-size:12px; color:var(--muted); cursor:pointer; user-select:none;
-    flex-wrap:wrap;
-  }
-  .remember-row input[type=checkbox]{ accent-color:var(--accent); cursor:pointer; flex:none; }
   .row-actions{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
 
   button{
@@ -73,7 +66,7 @@
   button:active:not(:disabled){ transform: translateY(1px); }
   button:disabled{ opacity:0.4; cursor:not-allowed; }
 
-  textarea, input[type=text]{
+  textarea, input[type=text], input[type=password]{
     width:100%; font-family:var(--mono); font-size:12.5px;
     background:var(--panel2); color:var(--text);
     border:1px solid var(--border); border-radius:7px; padding:10px; resize:vertical;
@@ -91,7 +84,6 @@
   .signal-badge.wifi{ color:var(--ok); background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); }
   .signal-badge.bt{ color:#60a5fa; background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); }
 
-  /* Automatisches Responsives Grid für Stat-Karten */
   .status-grid{
     display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-top:14px;
   }
@@ -126,7 +118,6 @@
   }
   .pmode-select:disabled{ opacity:0.4; cursor:not-allowed; }
 
-  /* --- timer panel: collapsible summary header --- */
   .timer-summary{
     display:flex; align-items:center; justify-content:space-between;
     cursor:pointer; user-select:none; -webkit-user-select:none;
@@ -135,7 +126,6 @@
   .timer-chevron{ color:var(--muted); font-size:11px; transition: transform 120ms; flex:none; margin-left:8px; }
   .timer-body{ margin-top:14px; }
 
-  /* --- tabs (schedule builder) --- */
   .tabs{ display:flex; align-items:center; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
   .tab{
     font-family:var(--sans); font-size:12.5px; font-weight:600; color:var(--muted);
@@ -183,7 +173,6 @@
   .broker-settings{margin-top:2px;padding:12px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;}
   .broker-settings .panel-title{margin-bottom:10px;}
   
-  /* Automatisches Layout für Formulare */
   .form-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
   .form-field{display:flex;flex-direction:column;gap:5px;min-width:140px;flex:1;}
   .form-field label{font-size:11px;color:var(--muted);font-weight:600;}
@@ -199,7 +188,7 @@
     body{ padding:12px; }
     h1{ font-size:17px; }
     .subtitle{ font-size:12.5px; }
-    .panel{ padding:12px; border-radius:99px; }
+    .panel{ padding:12px; }
     .panel-header{ flex-direction: column; align-items: flex-start; gap: 8px; }
     .panel-header-right{ margin-left: 0; width: 100%; justify-content: space-between; }
     .action-buttons-row{ flex-direction:column; }
@@ -227,7 +216,6 @@
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT — Firefox/Safari block mixed-content ws:// from this https page)</p>
 
   <div class="panel">
-    <!-- Panel Header mit Titel & Connection-Info ganz oben rechts -->
     <div class="panel-header">
       <p class="panel-title">Plugs & Connection</p>
       <div class="panel-header-right">
@@ -245,8 +233,8 @@
     <div class="connection-form">
       <div class="form-row">
         <div class="form-field name-field">
-          <label for="plugNameInput">Name</label>
-          <input type="text" id="plugNameInput" placeholder="e.g. Kitchen Plug" autocomplete="off">
+          <label for="plugNameInput">Name / BT Name</label>
+          <input type="text" id="plugNameInput" placeholder="e.g. BrAiNPlug-Kitchen" autocomplete="off">
         </div>
         <div class="form-field mode-field">
           <label for="plugModeSelect">Connection</label>
@@ -285,14 +273,11 @@
               <input type="password" id="brokerPasswordInput" placeholder="optional" autocomplete="current-password">
             </div>
           </div>
-          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-            <button id="saveBrokerBtn">Save broker settings</button>
-          </div>
         </div>
       </div>
 
       <div class="action-buttons-row">
-        <button id="addPlugBtn" class="primary">Add plug</button>
+        <button id="addPlugBtn" class="primary">Add & Connect plug</button>
         <button id="quickConnectBtn" class="primary">Quick Connect</button>
       </div>
     </div>
@@ -480,12 +465,21 @@ async function hmacSha256(keyStr, msgBytes){
 let device = null, gattServer = null, chars = {};
 const enc = new TextEncoder();
 const dec = new TextDecoder();
-const LS_KEY = 'brainplug_key';
 const LS_PLUGS = 'brainplug_plugs';
 const LS_BROKER = 'brainplug_broker_url';
 
 function loadPlugs(){ try { return JSON.parse(localStorage.getItem(LS_PLUGS) || '[]'); } catch (err) { return []; } }
 function savePlugs(list){ try { localStorage.setItem(LS_PLUGS, JSON.stringify(list)); } catch (err) { console.warn('localStorage write failed:', err); } }
+function saveBrokerSettings(){
+  try {
+    localStorage.setItem(LS_BROKER, JSON.stringify({
+      url: brokerUrlInput.value.trim(),
+      username: brokerUserInput.value.trim(),
+      password: brokerPasswordInput.value
+    }));
+  } catch (err) { console.warn('localStorage write failed:', err); }
+}
+
 let plugs = loadPlugs();
 let activePlugId = null;
 
@@ -542,7 +536,7 @@ function syncPlugConnectionFields(){
 plugModeSelect.addEventListener('change', syncPlugConnectionFields);
 syncPlugConnectionFields();
 
-document.getElementById('addPlugBtn').addEventListener('click', () => {
+document.getElementById('addPlugBtn').addEventListener('click', async () => {
   const name = document.getElementById('plugNameInput').value.trim();
   const mode = plugModeSelect.value;
   const prefix = plugPrefixInput.value.trim();
@@ -552,24 +546,32 @@ document.getElementById('addPlugBtn').addEventListener('click', () => {
   if (mode === 'ble' && key.length < MIN_KEY_LEN){ alert(`Bluetooth Key must be at least ${MIN_KEY_LEN} characters.`); return; }
   if (mode === 'mqtt' && !prefix){ alert('MQTT plugs need a topic_prefix.'); return; }
 
-  plugs.push({ id: 'p' + Date.now(), name, mode, prefix, key: mode === 'ble' ? key : '' });
+  if (mode === 'mqtt') saveBrokerSettings();
+
+  const newPlug = { id: 'p' + Date.now(), name, mode, prefix, key: mode === 'ble' ? key : '' };
+  plugs.push(newPlug);
   savePlugs(plugs);
   document.getElementById('plugNameInput').value = '';
   plugPrefixInput.value = '';
   plugKeyInput.value = '';
   renderPlugList();
+
+  // Verbindet direkt automatisch nach dem Hinzufügen
+  await selectPlug(newPlug);
 });
 
 document.getElementById('quickConnectBtn').addEventListener('click', async () => {
   const mode = plugModeSelect.value;
   const key = plugKeyInput.value.trim();
   const prefix = plugPrefixInput.value.trim();
+  const name = document.getElementById('plugNameInput').value.trim();
 
   if (mode === 'ble') {
-    await connectBle(key);
+    await connectBle(key, name);
     return;
   }
 
+  saveBrokerSettings();
   const broker = brokerUrlInput.value.trim();
   if (!broker){ statusText.textContent = 'Set Broker Settings first.'; return; }
   if (!prefix){ statusText.textContent = 'Enter an MQTT topic_prefix.'; return; }
@@ -600,17 +602,6 @@ try {
     brokerPasswordInput.value = savedBroker.password || '';
   }
 } catch (err) { console.warn('localStorage read failed:', err); }
-
-document.getElementById('saveBrokerBtn').addEventListener('click', () => {
-  try {
-    localStorage.setItem(LS_BROKER, JSON.stringify({
-      url: brokerUrlInput.value.trim(),
-      username: brokerUserInput.value.trim(),
-      password: brokerPasswordInput.value
-    }));
-  } catch (err) { console.warn('localStorage write failed:', err); }
-  showWriteStatus('Broker settings saved.', true);
-});
 
 let activeTransport = null;
 let mqttClient = null;
@@ -707,7 +698,7 @@ async function selectPlug(plug){
     activePlugId = plug.id;
     plugKeyInput.value = plug.key || '';
     renderPlugList();
-    await connectBle(plug.key);
+    await connectBle(plug.key, plug.name);
     return;
   }
 
@@ -852,7 +843,7 @@ function queueWrite(fn, label){
   return run;
 }
 
-async function connectBle(overridePin){
+async function connectBle(overridePin, targetName = ''){
   const pin = overridePin || plugKeyInput.value.trim();
   if (!pin){
     statusText.textContent = 'Enter the Key first.';
@@ -863,10 +854,16 @@ async function connectBle(overridePin){
     return;
   }
   try {
+    const filters = [{ services: [SERVICE_UUID] }];
+    if (targetName) {
+      filters.push({ namePrefix: targetName });
+    }
+    
     device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }],
+      filters: filters,
       optionalServices: [SERVICE_UUID]
     });
+    
     device.addEventListener('gattserverdisconnected', onDisconnected);
     statusText.textContent = 'Connecting…';
     gattServer = await device.gatt.connect();
@@ -883,7 +880,7 @@ async function connectBle(overridePin){
     await chars.response.writeValue(response);
 
     let authValue;
-    statusText.textContent = 'Waiting for plug (may take a bit after wrong attempts)…';
+    statusText.textContent = 'Waiting for plug…';
     try {
       authValue = await authPromise;
     } catch (e) {
@@ -900,7 +897,7 @@ async function connectBle(overridePin){
     await refreshAll();
     startStatsPolling();
     activeTransport = bleTransport;
-    statusText.textContent = device.name || 'BrAiNPlug';
+    statusText.textContent = device.name || targetName || 'BrAiNPlug';
     setConnectedUI(true);
     btSignalBadge.style.display = 'inline';
   } catch (err) {
