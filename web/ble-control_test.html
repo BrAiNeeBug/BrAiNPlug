@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>BrAiNPlug — BLE-Control</title>
+<style>
+  :root{
+    --bg: #14171a;
+    --panel: #1b2126;
+    --panel2: #20272d;
+    --border: #2a3138;
+    --text: #e6e9ec;
+    --muted: #838d97;
+    --accent: #ff8a3d;
+    --ok: #4ade80;
+    --err: #f87171;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:24px;
+    background:var(--bg); color:var(--text);
+    font-family:var(--sans);
+    display:flex; justify-content:center;
+  }
+  .wrap{ width:100%; max-width:720px; }
+  h1{ font-size:19px; font-weight:700; letter-spacing:0.2px; margin:0 0 2px 0; }
+  .subtitle{ color:var(--muted); font-size:13px; margin:0 0 20px 0; line-height:1.5; }
+  .panel{
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:10px; padding:16px; margin-bottom:16px;
+  }
+  
+  /* Modern Flex-Header für Panels */
+  .panel-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .panel-title{
+    font-size:11px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--muted); margin:0; font-weight:600;
+  }
+  .panel-header-right{
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+  }
+
+  .hint{ font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; }
+  .remember-row{
+    display:flex; align-items:center; gap:7px; margin-top:10px;
+    font-size:12px; color:var(--muted); cursor:pointer; user-select:none;
+    flex-wrap:wrap;
+  }
+  .remember-row input[type=checkbox]{ accent-color:var(--accent); cursor:pointer; flex:none; }
+  .row-actions{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+
+  button{
+    font-family:var(--sans); font-size:13px; font-weight:600;
+    border-radius:7px; border:1px solid var(--border);
+    padding:8px 14px; cursor:pointer; background:var(--panel2); color:var(--text);
+  }
+  button:hover:not(:disabled){ border-color:#3a434c; }
+  button.primary{ background:var(--accent); border-color:var(--accent); color:#1a1204; }
+  button.primary:hover:not(:disabled){ filter:brightness(1.08); }
+  button:active:not(:disabled){ transform: translateY(1px); }
+  button:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  textarea, input[type=text]{
+    width:100%; font-family:var(--mono); font-size:12.5px;
+    background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px; padding:10px; resize:vertical;
+  }
+
+  .status-line{ display:flex; align-items:center; gap:8px; font-size:13px; flex-wrap:wrap; }
+  .dot{ width:9px; height:9px; border-radius:50%; background:var(--muted); flex:none; }
+  .dot.connected{ background:var(--ok); box-shadow:0 0 6px 0 rgba(74,222,128,0.6); }
+  .dot.err{ background:var(--err); }
+
+  .signal-badge{
+    font-family:var(--mono); font-size:11px; font-weight:600;
+    padding:2px 8px; border-radius:20px;
+  }
+  .signal-badge.wifi{ color:var(--ok); background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); }
+  .signal-badge.bt{ color:#60a5fa; background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); }
+
+  /* Automatisches Responsives Grid für Stat-Karten */
+  .status-grid{
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-top:14px;
+  }
+  .stat{
+    background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+    padding:10px 12px;
+  }
+  .stat-label{ font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; }
+  .stat-value{ font-size:18px; font-weight:700; margin-top:4px; font-family:var(--mono); }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .toggle-label{ font-size:13px; font-weight:600; }
+  .toggle-sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .switch{
+    position:relative; width:44px; height:24px; flex:none;
+    background:var(--panel2); border:1px solid var(--border); border-radius:999px;
+    cursor:pointer; transition: background 120ms;
+  }
+  .switch.on{ background:var(--accent); border-color:var(--accent); }
+  .switch:disabled, .switch.disabled{ opacity:0.4; cursor:not-allowed; }
+  .switch .knob{
+    position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%;
+    background:var(--text); transition: transform 120ms;
+  }
+  .switch.on .knob{ transform: translateX(20px); }
+
+  .pmode-select{
+    font-family:var(--sans); font-size:12.5px; font-weight:600; flex:none;
+    background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px; padding:7px 10px;
+    cursor:pointer;
+  }
+  .pmode-select:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  /* --- timer panel: collapsible summary header --- */
+  .timer-summary{
+    display:flex; align-items:center; justify-content:space-between;
+    cursor:pointer; user-select:none; -webkit-user-select:none;
+  }
+  .timer-summary .status-line{ font-size:13px; font-weight:600; }
+  .timer-chevron{ color:var(--muted); font-size:11px; transition: transform 120ms; flex:none; margin-left:8px; }
+  .timer-body{ margin-top:14px; }
+
+  /* --- tabs (schedule builder) --- */
+  .tabs{ display:flex; align-items:center; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
+  .tab{
+    font-family:var(--sans); font-size:12.5px; font-weight:600; color:var(--muted);
+    background:none; border:none; border-bottom:2px solid transparent;
+    padding:8px 4px; margin-bottom:-1px; cursor:pointer; border-radius:0;
+  }
+  .tab:hover{ color:var(--text); border-color:transparent; }
+  .tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .timer-off-link{
+    font-family:var(--sans); font-size:12px; font-weight:600; color:var(--muted);
+    background:none; border:none; padding:8px 2px; margin-left:auto; margin-bottom:-1px;
+    cursor:pointer; text-decoration:underline; text-underline-offset:2px;
+  }
+  .timer-off-link:hover:not(:disabled){ color:var(--err); }
+  .timer-off-link:disabled{ opacity:0.4; cursor:not-allowed; text-decoration:none; }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .grid-scroll{ overflow-x:auto; }
+  .grid-outer{
+    display:grid; grid-template-columns: 34px repeat(7, 1fr);
+    width:calc(100% - 2px); min-width:480px; user-select:none; -webkit-user-select:none; touch-action:none;
+  }
+  .day-label{ font-size:11px; color:var(--muted); text-align:center; padding-bottom:6px; font-weight:600; }
+  .hour-label{
+    font-size:10px; color:var(--muted); font-family:var(--mono);
+    text-align:right; padding-right:6px; line-height:16px; height:16px;
+  }
+  .cell{ height:16px; border:1px solid var(--border); background: var(--panel2); margin:-0.5px; cursor:pointer; transition: background 60ms linear; }
+  .cell.active{ background: var(--accent); border-color: var(--accent); box-shadow: 0 0 6px 0 rgba(255,138,61,0.55); }
+  .cell:hover:not(.active){ background: #2c343b; }
+
+  .time-row{ display:flex; align-items:flex-end; gap:14px; flex-wrap:wrap; }
+  .time-field label{ display:block; font-size:11px; color:var(--muted); margin-bottom:6px; }
+  input[type=time]{
+    font-family:var(--mono); font-size:13px; background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px; padding:8px 10px; color-scheme: dark;
+  }
+
+  .status{ font-size:12px; margin-top:8px; min-height:16px; }
+  .status.ok{ color:var(--ok); }
+  .status.err{ color:var(--err); }
+
+  .connection-form{display:flex;flex-direction:column;gap:10px;}
+  .broker-settings{margin-top:2px;padding:12px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;}
+  .broker-settings .panel-title{margin-bottom:10px;}
+  
+  /* Automatisches Layout für Formulare */
+  .form-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .form-field{display:flex;flex-direction:column;gap:5px;min-width:140px;flex:1;}
+  .form-field label{font-size:11px;color:var(--muted);font-weight:600;}
+  .form-field input,.form-field select{width:100%;}
+  .name-field{flex:1.5;}
+  .mode-field{flex:1;}
+  .full-field{flex:100%;}
+  
+  .action-buttons-row{display:flex;gap:10px;margin-top:4px;}
+  .action-buttons-row button{flex:1;height:38px;white-space:nowrap;}
+
+  @media (max-width: 480px){
+    body{ padding:12px; }
+    h1{ font-size:17px; }
+    .subtitle{ font-size:12.5px; }
+    .panel{ padding:12px; border-radius:99px; }
+    .panel-header{ flex-direction: column; align-items: flex-start; gap: 8px; }
+    .panel-header-right{ margin-left: 0; width: 100%; justify-content: space-between; }
+    .action-buttons-row{ flex-direction:column; }
+    .action-buttons-row button{ width:100%; height:auto; padding:12px 14px; font-size:14px; }
+    .switch{ width:50px; height:30px; }
+    .switch .knob{ width:24px; height:24px; }
+    .switch.on .knob{ transform: translateX(20px); }
+    .stat{ padding:8px 10px; }
+    .stat-value{ font-size:16px; }
+    .tabs{ gap:2px; flex-wrap:wrap; }
+    .tab{ font-size:12px; padding:8px 6px; }
+    .timer-off-link{ font-size:12px; padding:8px 4px; }
+    .cell{ height:22px; }
+    .hour-label{ line-height:22px; height:22px; }
+    .grid-outer{ min-width:560px; }
+    .time-row{ flex-direction:column; align-items:stretch; gap:10px; }
+    .time-row button{ width:100%; padding:12px; }
+    input[type=time]{ width:100%; padding:10px; font-size:14px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BrAiNPlug — Control (1.6.0)</h1>
+  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT — Firefox/Safari block mixed-content ws:// from this https page)</p>
+
+  <div class="panel">
+    <!-- Panel Header mit Titel & Connection-Info ganz oben rechts -->
+    <div class="panel-header">
+      <p class="panel-title">Plugs & Connection</p>
+      <div class="panel-header-right">
+        <div class="status-line">
+          <span class="dot" id="statusDot"></span>
+          <span id="statusText">Not connected</span>
+          <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
+          <span class="signal-badge bt" id="btSignalBadge" style="display:none;">BT –0 dBm</span>
+        </div>
+        <button id="disconnectBtn" disabled>Disconnect</button>
+      </div>
+    </div>
+
+    <div id="plugList"></div>
+    <div class="connection-form">
+      <div class="form-row">
+        <div class="form-field name-field">
+          <label for="plugNameInput">Name</label>
+          <input type="text" id="plugNameInput" placeholder="e.g. Kitchen Plug" autocomplete="off">
+        </div>
+        <div class="form-field mode-field">
+          <label for="plugModeSelect">Connection</label>
+          <select class="pmode-select" id="plugModeSelect">
+            <option value="ble">Bluetooth</option>
+            <option value="mqtt">MQTT</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="blePlugSettings">
+        <div class="form-field">
+          <label for="plugKeyInput">Bluetooth Key</label>
+          <input type="password" id="plugKeyInput" placeholder="Key (min. 12 chars)" autocomplete="new-password" minlength="12">
+        </div>
+      </div>
+
+      <div id="mqttPlugSettings" style="display:none;">
+        <div class="form-field full-field" style="margin-bottom: 10px;">
+          <label for="plugPrefixInput">MQTT topic_prefix</label>
+          <input type="text" id="plugPrefixInput" placeholder="e.g. brainplug" autocomplete="off">
+        </div>
+        <div class="broker-settings">
+          <div class="panel-title" style="margin-bottom:10px;">MQTT Broker Settings</div>
+          <div class="form-row">
+            <div class="form-field full-field">
+              <label for="brokerUrlInput">Broker URL</label>
+              <input type="text" id="brokerUrlInput" placeholder="ws://homeassistant.bk-net:9001" autocomplete="url">
+            </div>
+            <div class="form-field">
+              <label for="brokerUserInput">Username</label>
+              <input type="text" id="brokerUserInput" placeholder="optional" autocomplete="username">
+            </div>
+            <div class="form-field">
+              <label for="brokerPasswordInput">Password</label>
+              <input type="password" id="brokerPasswordInput" placeholder="optional" autocomplete="current-password">
+            </div>
+          </div>
+          <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+            <button id="saveBrokerBtn">Save broker settings</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="action-buttons-row">
+        <button id="addPlugBtn" class="primary">Add plug</button>
+        <button id="quickConnectBtn" class="primary">Quick Connect</button>
+      </div>
+    </div>
+
+    <p class="hint">Quick Connect connects directly using the fields above without saving a new plug.</p>
+    <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
+  </div>
+
+  <div class="panel">
+    <p class="panel-title" style="margin-bottom:12px;">Plug status</p>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Relay</div>
+        <div class="toggle-sub" id="relaySub">unknown</div>
+      </div>
+      <div class="switch disabled" id="relaySwitch"><div class="knob"></div></div>
+    </div>
+    <div class="toggle-row" style="margin-top:14px;">
+      <div>
+        <div class="toggle-label">ChildLock</div>
+        <div class="toggle-sub">blocks button + soft switching while on</div>
+      </div>
+      <div class="switch disabled" id="childlockSwitch"><div class="knob"></div></div>
+    </div>
+    <div class="toggle-row" style="margin-top:14px;">
+      <div>
+        <div class="toggle-label">PowerONMode</div>
+        <div class="toggle-sub">state to restore to after power loss</div>
+      </div>
+      <select class="pmode-select" id="powerModeSelect" disabled>
+        <option value="Last State">Last State</option>
+        <option value="Always ON">Always ON</option>
+        <option value="Always OFF">Always OFF</option>
+      </select>
+    </div>
+    <div class="status-grid">
+      <div class="stat">
+        <div class="stat-label">Power</div>
+        <div class="stat-value" id="powerValue">–</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Voltage</div>
+        <div class="stat-value" id="voltageValue">–</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Current</div>
+        <div class="stat-value" id="currentValue">–</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">TotalEnergy</div>
+        <div class="stat-value" id="energyValue">–</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">ActualDuration</div>
+        <div class="stat-value" id="actualDurationValue" style="font-size:14px;">–</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">TimerMode</div>
+        <div class="stat-value" id="timerModeValue" style="font-size:14px;">–</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="timer-summary" id="timerSummary" role="button" tabindex="0" aria-expanded="false">
+      <div class="status-line">
+        <span class="dot" id="timerDot"></span>
+        <span id="timerSummaryText">Timer: –</span>
+      </div>
+      <span class="timer-chevron" id="timerChevron">▸</span>
+    </div>
+
+    <div class="timer-body" id="timerBody" style="display:none;">
+      <div class="tabs">
+        <button class="tab active" data-tab="weekly">Weekly</button>
+        <button class="tab" data-tab="daily">Daily</button>
+        <button class="tab" data-tab="duration">Duration</button>
+        <button class="timer-off-link" disabled>Turn-Timer-Off</button>
+      </div>
+
+      <div class="tab-panel active" id="tab-weekly">
+        <p class="hint" style="margin-top:0; margin-bottom:12px;">Click or drag across the grid to paint when the plug should be on. Each column is one weekday, each row is one hour.</p>
+        <div class="grid-scroll" id="gridScroll"><div class="grid-outer" id="grid"></div></div>
+        <div class="row-actions">
+          <button id="clearBtn">Clear grid</button>
+        </div>
+        <div class="row-actions">
+          <button id="setWeeklyBtn" class="primary" disabled>Set as Weekly</button>
+          <button id="setWeeklySingleBtn" class="primary" disabled>Set as WeeklySingle</button>
+        </div>
+        <p class="hint">The string below updates live as you paint. For a range crossing midnight, edit it by hand before pressing Set.</p>
+      </div>
+
+      <div class="tab-panel" id="tab-daily">
+        <div class="time-row">
+          <div class="time-field"><label for="dailyStart">ON at</label><input type="time" id="dailyStart" step="1" value="08:00:00"></div>
+          <div class="time-field"><label for="dailyEnd">OFF at</label><input type="time" id="dailyEnd" step="1" value="18:00:00"></div>
+        </div>
+        <div class="row-actions">
+          <button id="setDailyBtn" class="primary" disabled>Set as Daily</button>
+          <button id="setDailySingleBtn" class="primary" disabled>Set as DailySingle</button>
+        </div>
+        <p class="hint"><b>Daily</b> keeps forcing the state the whole window (survives reboot); <b>DailySingle</b> only fires once at each time. Doesn't have to be same-day; e.g. 22:00:00-06:00:00 crosses midnight fine.</p>
+      </div>
+
+      <div class="tab-panel" id="tab-duration">
+        <div class="time-row">
+          <div class="time-field"><label for="durationOn">ON for</label><input type="time" id="durationOn" step="1" value="00:00:10"></div>
+          <div class="time-field"><label for="durationOff">OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05"></div>
+        </div>
+        <div class="row-actions">
+          <button id="setDurationBtn" class="primary" disabled>Set as Duration</button>
+        </div>
+        <p class="hint">The plug repeats this ON/OFF cycle continuously. Not a clock time — a duration (HH:MM:SS each).</p>
+      </div>
+
+      <p class="panel-title" style="margin-top:16px; margin-bottom:8px;">TimerConf string</p>
+      <textarea id="output" spellcheck="false" rows="2" placeholder="Fills in automatically as you paint/pick above, or type/paste one directly."></textarea>
+      <p class="status" id="writeStatus"></p>
+    </div>
+  </div>
+</div>
+
+<script src="mqtt_min.js"></script>
+<script>
+const SERVICE_UUID = 'a36c6568-2877-466d-ad19-bdbf301199a8';
+const CHAR_UUIDS = {
+  nonce:     '61dd1e94-be40-4e87-a958-471fbe096b3e',
+  response:  '8f439555-8033-41ef-af6d-c340b4c9a7de',
+  auth:      'bff96ad9-2846-45e8-9912-3916a6ddf141',
+  relay:     'b2fbcf01-888c-4dbd-a0ca-9c59855115a6',
+  childlock: '9745e8b8-7ffb-44f8-adfa-e986ee933a8f',
+  powermode: '5a2c9438-6e1b-4f83-9a02-7dfb1c5e8a3c',
+  timermode: '1bb6e309-c3df-4fd7-88d8-96039201b1db',
+  timerconf: '2bc4d2fc-4a0e-4d00-8bf3-1a25656eb587',
+  power:     '18074a57-a3ba-49a6-a958-d49525bb9434',
+  voltage:   'eef5b493-e0b5-4257-b79f-5945b52fc4b4',
+  current:   'e512c5a0-e726-478f-94ae-e19218f60118',
+  energy:    'd3134b34-4635-4d72-9e50-49053be2bc19',
+  actualduration: 'f848732a-d062-457c-aa8e-66c1b5e5fa2e',
+  wifisignal: '8e0f6a15-2b9d-4a1e-9c3f-7d5b0e2a4f6c',
+  timerstatus: '4195b034-6b66-4b12-82d2-5a8e28d4984f',
+};
+
+const MQTT_DOMAINS = {
+  relay: 'switch', childlock: 'switch',
+  powermode: 'select', timermode: 'select',
+  timerconf: 'text',
+  power: 'sensor', voltage: 'sensor', current: 'sensor', energy: 'sensor',
+  wifisignal: 'sensor',
+  actualduration: 'text_sensor', timerstatus: 'text_sensor',
+};
+const MQTT_OBJECT_IDS = {
+  relay: 'switch', childlock: 'childlock',
+  powermode: 'poweronmode', timermode: 'timermode', timerconf: 'timerconf',
+  power: 'power_w', voltage: 'voltage_v', current: 'current_a', energy: 'totalenergy',
+  actualduration: 'actualduration', wifisignal: 'wifisignal', timerstatus: 'timerstatus',
+};
+
+const AUTH_TIMEOUT_MS = 65000;
+const MIN_KEY_LEN = 12;
+
+function waitForAuthNotify(timeoutMs){
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      chars.auth.removeEventListener('characteristicvaluechanged', handler);
+      reject(new Error('Auth timeout'));
+    }, timeoutMs);
+    function handler(e){
+      clearTimeout(timer);
+      chars.auth.removeEventListener('characteristicvaluechanged', handler);
+      resolve(e.target.value.getUint8(0));
+    }
+    chars.auth.addEventListener('characteristicvaluechanged', handler);
+  });
+}
+
+async function hmacSha256(keyStr, msgBytes){
+  const keyData = enc.encode(keyStr);
+  const cryptoKey = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, msgBytes);
+  return new Uint8Array(sig);
+}
+
+let device = null, gattServer = null, chars = {};
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+const LS_KEY = 'brainplug_key';
+const LS_PLUGS = 'brainplug_plugs';
+const LS_BROKER = 'brainplug_broker_url';
+
+function loadPlugs(){ try { return JSON.parse(localStorage.getItem(LS_PLUGS) || '[]'); } catch (err) { return []; } }
+function savePlugs(list){ try { localStorage.setItem(LS_PLUGS, JSON.stringify(list)); } catch (err) { console.warn('localStorage write failed:', err); } }
+let plugs = loadPlugs();
+let activePlugId = null;
+
+const plugListEl = document.getElementById('plugList');
+function renderPlugList(){
+  plugListEl.innerHTML = '';
+  if (!plugs.length){
+    const p = document.createElement('p');
+    p.className = 'hint'; p.textContent = 'No plugs saved yet — add one below.';
+    plugListEl.appendChild(p);
+    return;
+  }
+  plugs.forEach(plug => {
+    const row = document.createElement('div');
+    row.className = 'toggle-row'; row.style.marginTop = '10px';
+    const left = document.createElement('div');
+    const sub = plug.mode === 'mqtt' ? ('MQTT · ' + plug.prefix) : 'Bluetooth';
+    left.innerHTML = '<div class="toggle-label">' + plug.name + '</div><div class="toggle-sub">' + sub + (plug.id === activePlugId ? ' · active' : '') + '</div>';
+    const actions = document.createElement('div');
+    actions.style.display = 'flex'; actions.style.gap = '6px';
+    const goBtn = document.createElement('button');
+    goBtn.textContent = plug.id === activePlugId ? 'Active' : 'Connect';
+    if (plug.id !== activePlugId) goBtn.className = 'primary';
+    goBtn.disabled = plug.id === activePlugId;
+    goBtn.addEventListener('click', () => selectPlug(plug));
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '×'; delBtn.title = 'Remove';
+    delBtn.addEventListener('click', () => {
+      plugs = plugs.filter(p => p.id !== plug.id);
+      savePlugs(plugs);
+      renderPlugList();
+    });
+    actions.appendChild(goBtn); actions.appendChild(delBtn);
+    row.appendChild(left); row.appendChild(actions);
+    plugListEl.appendChild(row);
+  });
+}
+renderPlugList();
+
+const plugModeSelect = document.getElementById('plugModeSelect');
+const plugPrefixInput = document.getElementById('plugPrefixInput');
+const plugKeyInput = document.getElementById('plugKeyInput');
+const blePlugSettings = document.getElementById('blePlugSettings');
+const mqttPlugSettings = document.getElementById('mqttPlugSettings');
+const brokerUrlInput = document.getElementById('brokerUrlInput');
+const brokerUserInput = document.getElementById('brokerUserInput');
+const brokerPasswordInput = document.getElementById('brokerPasswordInput');
+
+function syncPlugConnectionFields(){
+  const ble = plugModeSelect.value === 'ble';
+  blePlugSettings.style.display = ble ? '' : 'none';
+  mqttPlugSettings.style.display = ble ? 'none' : '';
+}
+plugModeSelect.addEventListener('change', syncPlugConnectionFields);
+syncPlugConnectionFields();
+
+document.getElementById('addPlugBtn').addEventListener('click', () => {
+  const name = document.getElementById('plugNameInput').value.trim();
+  const mode = plugModeSelect.value;
+  const prefix = plugPrefixInput.value.trim();
+  const key = plugKeyInput.value.trim();
+
+  if (!name){ alert('Give the plug a name.'); return; }
+  if (mode === 'ble' && key.length < MIN_KEY_LEN){ alert(`Bluetooth Key must be at least ${MIN_KEY_LEN} characters.`); return; }
+  if (mode === 'mqtt' && !prefix){ alert('MQTT plugs need a topic_prefix.'); return; }
+
+  plugs.push({ id: 'p' + Date.now(), name, mode, prefix, key: mode === 'ble' ? key : '' });
+  savePlugs(plugs);
+  document.getElementById('plugNameInput').value = '';
+  plugPrefixInput.value = '';
+  plugKeyInput.value = '';
+  renderPlugList();
+});
+
+document.getElementById('quickConnectBtn').addEventListener('click', async () => {
+  const mode = plugModeSelect.value;
+  const key = plugKeyInput.value.trim();
+  const prefix = plugPrefixInput.value.trim();
+
+  if (mode === 'ble') {
+    await connectBle(key);
+    return;
+  }
+
+  const broker = brokerUrlInput.value.trim();
+  if (!broker){ statusText.textContent = 'Set Broker Settings first.'; return; }
+  if (!prefix){ statusText.textContent = 'Enter an MQTT topic_prefix.'; return; }
+
+  if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+  if (mqttClient){ try { mqttClient.end(true); } catch (err) {} mqttClient = null; }
+  activeTransport = null;
+  activePlugId = null;
+  renderPlugList();
+  setConnectedUI(false);
+  statusText.textContent = 'Connecting via MQTT…';
+  try {
+    await mqttConnect(broker, prefix, { username: brokerUserInput.value.trim(), password: brokerPasswordInput.value });
+    activeTransport = mqttTransport;
+    statusText.textContent = 'MQTT Quick Connect';
+    setConnectedUI(true);
+  } catch (err) {
+    statusText.textContent = 'MQTT connect failed: ' + err.message;
+  }
+});
+
+try {
+  const savedBroker = JSON.parse(localStorage.getItem(LS_BROKER) || '{}');
+  if (typeof savedBroker === 'string') brokerUrlInput.value = savedBroker;
+  else {
+    brokerUrlInput.value = savedBroker.url || '';
+    brokerUserInput.value = savedBroker.username || '';
+    brokerPasswordInput.value = savedBroker.password || '';
+  }
+} catch (err) { console.warn('localStorage read failed:', err); }
+
+document.getElementById('saveBrokerBtn').addEventListener('click', () => {
+  try {
+    localStorage.setItem(LS_BROKER, JSON.stringify({
+      url: brokerUrlInput.value.trim(),
+      username: brokerUserInput.value.trim(),
+      password: brokerPasswordInput.value
+    }));
+  } catch (err) { console.warn('localStorage write failed:', err); }
+  showWriteStatus('Broker settings saved.', true);
+});
+
+let activeTransport = null;
+let mqttClient = null;
+let mqttPrefix = '';
+let lastRawTimerConf = '';
+
+function mqttTopic(key, kind){
+  return mqttPrefix + '/' + MQTT_DOMAINS[key] + '/' + MQTT_OBJECT_IDS[key] + '/' + kind;
+}
+
+function mqttConnect(brokerUrl, prefix, auth = {}){
+  return new Promise((resolve, reject) => {
+    mqttPrefix = prefix;
+    let settled = false;
+    const client = mqtt.connect(brokerUrl, { connectTimeout: 8000, reconnectPeriod: 2000, username: auth.username || undefined, password: auth.password || undefined });
+    const failTimer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      client.end(true);
+      reject(new Error('timeout'));
+    }, 9000);
+    client.on('connect', () => {
+      if (settled) return;
+      const subs = Object.keys(MQTT_OBJECT_IDS).map(k => mqttTopic(k, 'state'));
+      client.subscribe(subs, err => {
+        clearTimeout(failTimer);
+        if (err){ settled = true; reject(err); return; }
+        settled = true;
+        mqttClient = client;
+        resolve();
+      });
+    });
+    client.on('error', err => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(failTimer);
+      reject(err);
+    });
+    client.on('message', (topic, payloadBuf) => {
+      const str = payloadBuf.toString();
+      for (const key of Object.keys(MQTT_OBJECT_IDS)){
+        if (topic === mqttTopic(key, 'state')){ handleMqttState(key, str); return; }
+      }
+    });
+  });
+}
+
+function handleMqttState(key, str){
+  switch (key){
+    case 'relay': updateRelay(str === 'ON' ? 1 : 0); break;
+    case 'childlock': updateChildlock(str === 'ON' ? 1 : 0); break;
+    case 'powermode': updatePowerMode(str); break;
+    case 'timermode': updateTimerMode(str); applyTimerConfToUI(str, lastRawTimerConf); break;
+    case 'timerconf': lastRawTimerConf = str; applyTimerConfToUI(lastTimerMode, str); break;
+    case 'power': updatePower(parseFloat(str)); break;
+    case 'voltage': updateVoltage(parseFloat(str)); break;
+    case 'current': updateCurrent(parseFloat(str)); break;
+    case 'energy': updateEnergy(parseFloat(str)); break;
+    case 'actualduration': updateActualDuration(str); break;
+    case 'wifisignal': updateWifiSignal(parseFloat(str)); break;
+    case 'timerstatus': updateTimerStatus(str); break;
+  }
+}
+
+const bleTransport = {
+  kind: 'ble',
+  write(key, value){
+    switch (key){
+      case 'relay': return queueWrite(() => chars.relay.writeValue(new Uint8Array([value ? 1 : 0])), 'relay');
+      case 'childlock': return queueWrite(() => chars.childlock.writeValue(new Uint8Array([value ? 1 : 0])), 'childlock');
+      case 'powermode': return queueWrite(() => chars.powermode.writeValue(enc.encode(value)), 'powermode');
+      case 'timermode': return queueWrite(() => chars.timermode.writeValue(enc.encode(value)), 'timermode');
+      case 'timerconf': return queueWrite(() => chars.timerconf.writeValue(enc.encode(value)), 'timerconf');
+    }
+  }
+};
+const mqttTransport = {
+  kind: 'mqtt',
+  write(key, value){
+    const payload = (key === 'relay' || key === 'childlock') ? (value ? 'ON' : 'OFF') : String(value);
+    return new Promise((resolve, reject) => {
+      mqttClient.publish(mqttTopic(key, 'command'), payload, err => err ? reject(err) : resolve());
+    });
+  }
+};
+
+async function selectPlug(plug){
+  if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+  if (mqttClient){ try { mqttClient.end(true); } catch (err) { /* ignore */ } mqttClient = null; }
+  activeTransport = null;
+  setConnectedUI(false);
+
+  if (plug.mode === 'ble'){
+    activePlugId = plug.id;
+    plugKeyInput.value = plug.key || '';
+    renderPlugList();
+    await connectBle(plug.key);
+    return;
+  }
+
+  const broker = brokerUrlInput.value.trim();
+  if (!broker){ statusText.textContent = 'Set Broker Settings first.'; return; }
+  activePlugId = plug.id; renderPlugList();
+  statusText.textContent = 'Connecting to ' + plug.name + ' via MQTT…';
+  try {
+    await mqttConnect(broker, plug.prefix, { username: brokerUserInput.value.trim(), password: brokerPasswordInput.value });
+    activeTransport = mqttTransport;
+    statusText.textContent = plug.name;
+    setConnectedUI(true);
+  } catch (err) {
+    statusText.textContent = 'MQTT connect failed: ' + err.message;
+    activePlugId = null; renderPlugList();
+  }
+}
+
+const disconnectBtn = document.getElementById('disconnectBtn');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const wifiSignalBadge = document.getElementById('wifiSignalBadge');
+const wifiSignalValue = document.getElementById('wifiSignalValue');
+const btSignalBadge = document.getElementById('btSignalBadge');
+const relaySwitch = document.getElementById('relaySwitch');
+const relaySub = document.getElementById('relaySub');
+const childlockSwitch = document.getElementById('childlockSwitch');
+const powerModeSelect = document.getElementById('powerModeSelect');
+const powerValue = document.getElementById('powerValue');
+const voltageValue = document.getElementById('voltageValue');
+const currentValue = document.getElementById('currentValue');
+const energyValue = document.getElementById('energyValue');
+const timerModeValue = document.getElementById('timerModeValue');
+const actualDurationValue = document.getElementById('actualDurationValue');
+const timerSummary = document.getElementById('timerSummary');
+const timerBody = document.getElementById('timerBody');
+const timerChevron = document.getElementById('timerChevron');
+const timerDot = document.getElementById('timerDot');
+const timerSummaryText = document.getElementById('timerSummaryText');
+const timerOffBtns = document.querySelectorAll('.timer-off-link');
+const writeStatus = document.getElementById('writeStatus');
+const setBtns = ['setWeeklyBtn','setWeeklySingleBtn','setDailyBtn','setDailySingleBtn','setDurationBtn'].map(id => document.getElementById(id));
+
+if (!navigator.bluetooth) {
+  document.getElementById('unsupportedHint').style.display = 'block';
+}
+
+function setConnectedUI(connected){
+  statusDot.classList.toggle('connected', connected);
+  disconnectBtn.disabled = !connected;
+  relaySwitch.classList.toggle('disabled', !connected);
+  childlockSwitch.classList.toggle('disabled', !connected);
+  powerModeSelect.disabled = !connected;
+  setBtns.forEach(b => b.disabled = !connected);
+  timerOffBtns.forEach(b => b.disabled = !connected);
+  if (!connected){
+    statusText.textContent = 'Not connected';
+    relaySub.textContent = 'unknown';
+    powerValue.textContent = '–';
+    voltageValue.textContent = '–';
+    currentValue.textContent = '–';
+    energyValue.textContent = '–';
+    timerModeValue.textContent = '–';
+    actualDurationValue.textContent = '–';
+    relaySwitch.classList.remove('on');
+    childlockSwitch.classList.remove('on');
+    powerModeSelect.value = 'Last State';
+    wifiSignalBadge.style.display = 'none';
+    btSignalBadge.style.display = 'none';
+    lastTimerMode = ''; lastTimerStatus = '';
+    updateTimerSummary('', '');
+  }
+}
+
+let timerCollapsed = true;
+function setTimerCollapsed(collapsed){
+  timerCollapsed = collapsed;
+  timerBody.style.display = collapsed ? 'none' : '';
+  timerChevron.textContent = collapsed ? '▸' : '▾';
+  timerSummary.setAttribute('aria-expanded', String(!collapsed));
+}
+timerSummary.addEventListener('click', () => setTimerCollapsed(!timerCollapsed));
+timerSummary.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setTimerCollapsed(!timerCollapsed); }
+});
+
+const MODE_TO_TAB = {
+  Daily: 'daily', DailySingle: 'daily',
+  Weekly: 'weekly', WeeklySingle: 'weekly',
+  Duration: 'duration',
+};
+let lastTimerMode = '', lastTimerStatus = '';
+function updateTimerSummary(modeStr, statusStr){
+  timerDot.classList.remove('connected', 'err');
+  if (!modeStr || modeStr === 'OFF'){
+    timerSummaryText.textContent = 'Timer: OFF';
+  } else if (statusStr === 'No time sync'){
+    timerDot.classList.add('err');
+    timerSummaryText.textContent = 'Timer: ' + modeStr + ' — no time sync';
+  } else {
+    timerDot.classList.add('connected');
+    timerSummaryText.textContent = 'Timer: ' + modeStr + ' (active)';
+  }
+}
+
+function showWriteStatus(msg, ok){
+  writeStatus.textContent = msg;
+  writeStatus.className = 'status ' + (ok ? 'ok' : 'err');
+}
+
+let writeChain = Promise.resolve();
+const WRITE_TIMEOUT_MS = 4000;
+const WRITE_MAX_RETRIES = 2;
+
+function withTimeout(promise, ms){
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms);
+    promise.then(
+      v => { clearTimeout(timer); resolve(v); },
+      err => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
+function queueWrite(fn, label){
+  const run = writeChain.then(async () => {
+    let lastErr;
+    for (let attempt = 0; attempt <= WRITE_MAX_RETRIES; attempt++){
+      if (!device || !device.gatt || !device.gatt.connected){
+        throw new Error('not connected');
+      }
+      try {
+        return await withTimeout(fn(), WRITE_TIMEOUT_MS);
+      } catch (err) {
+        lastErr = err;
+        console.warn(`Write "${label}" attempt ${attempt + 1} failed:`, err.message);
+      }
+    }
+    throw lastErr;
+  });
+  writeChain = run.catch(() => {});
+  return run;
+}
+
+async function connectBle(overridePin){
+  const pin = overridePin || plugKeyInput.value.trim();
+  if (!pin){
+    statusText.textContent = 'Enter the Key first.';
+    return;
+  }
+  if (pin.length < MIN_KEY_LEN){
+    statusText.textContent = `Key too short (min. ${MIN_KEY_LEN} chars).`;
+    return;
+  }
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE_UUID] }],
+      optionalServices: [SERVICE_UUID]
+    });
+    device.addEventListener('gattserverdisconnected', onDisconnected);
+    statusText.textContent = 'Connecting…';
+    gattServer = await device.gatt.connect();
+    const service = await gattServer.getPrimaryService(SERVICE_UUID);
+    for (const [key, uuid] of Object.entries(CHAR_UUIDS)){
+      chars[key] = await service.getCharacteristic(uuid);
+    }
+    const nonceVal = await chars.nonce.readValue();
+    const nonceBytes = new Uint8Array(nonceVal.buffer, nonceVal.byteOffset, nonceVal.byteLength);
+    const response = await hmacSha256(pin, nonceBytes);
+
+    await chars.auth.startNotifications();
+    const authPromise = waitForAuthNotify(AUTH_TIMEOUT_MS);
+    await chars.response.writeValue(response);
+
+    let authValue;
+    statusText.textContent = 'Waiting for plug (may take a bit after wrong attempts)…';
+    try {
+      authValue = await authPromise;
+    } catch (e) {
+      statusText.textContent = 'Auth timeout — plug still in backoff from recent wrong attempts, try again later.';
+      device.gatt.disconnect();
+      return;
+    }
+    if (authValue !== 1){
+      statusText.textContent = 'Wrong PIN — rejected by the plug.';
+      device.gatt.disconnect();
+      return;
+    }
+    await subscribeAll();
+    await refreshAll();
+    startStatsPolling();
+    activeTransport = bleTransport;
+    statusText.textContent = device.name || 'BrAiNPlug';
+    setConnectedUI(true);
+    btSignalBadge.style.display = 'inline';
+  } catch (err) {
+    statusText.textContent = 'Connection failed: ' + err.message;
+    statusDot.classList.add('err');
+    setTimeout(() => statusDot.classList.remove('err'), 2500);
+  }
+}
+
+function onDisconnected(){
+  stopStatsPolling();
+  chars = {};
+  writeChain = Promise.resolve();
+  if (activeTransport && activeTransport.kind === 'ble') activeTransport = null;
+  setConnectedUI(false);
+}
+
+async function disconnect(){
+  stopStatsPolling();
+  if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+  if (mqttClient){ try { mqttClient.end(true); } catch (err) { /* ignore */ } mqttClient = null; }
+  activeTransport = null;
+  activePlugId = null; renderPlugList();
+  setConnectedUI(false);
+}
+
+async function subscribeAll(){
+  chars.relay.addEventListener('characteristicvaluechanged', e => updateRelay(e.target.value.getUint8(0)));
+  await chars.relay.startNotifications();
+  chars.childlock.addEventListener('characteristicvaluechanged', e => updateChildlock(e.target.value.getUint8(0)));
+  await chars.childlock.startNotifications();
+  chars.timermode.addEventListener('characteristicvaluechanged', e => updateTimerMode(dec.decode(e.target.value)));
+  await chars.timermode.startNotifications();
+  chars.powermode.addEventListener('characteristicvaluechanged', e => updatePowerMode(dec.decode(e.target.value)));
+  await chars.powermode.startNotifications();
+  chars.timerstatus.addEventListener('characteristicvaluechanged', e => updateTimerStatus(dec.decode(e.target.value)));
+  await chars.timerstatus.startNotifications();
+}
+
+let statsPollTimer = null;
+let statsPollIndex = 0;
+const statsPollSequence = [
+  async () => updatePower((await chars.power.readValue()).getFloat32(0, true)),
+  async () => updateVoltage((await chars.voltage.readValue()).getFloat32(0, true)),
+  async () => updateCurrent((await chars.current.readValue()).getFloat32(0, true)),
+  async () => updateEnergy((await chars.energy.readValue()).getFloat32(0, true)),
+  async () => updateActualDuration(dec.decode(await chars.actualduration.readValue())),
+  async () => updateWifiSignal((await chars.wifisignal.readValue()).getFloat32(0, true)),
+];
+
+function startStatsPolling(){
+  stopStatsPolling();
+  statsPollIndex = 0;
+
+  statsPollTimer = setInterval(async () => {
+    if (!device || !device.gatt || !device.gatt.connected || !chars.power) return;
+
+    const step = statsPollSequence[statsPollIndex];
+    statsPollIndex = (statsPollIndex + 1) % statsPollSequence.length;
+    try {
+      await step();
+    } catch (err) {
+      console.warn('Stats read failed:', err);
+    }
+  }, 1000);
+}
+
+function stopStatsPolling(){
+  if (statsPollTimer){
+    clearInterval(statsPollTimer);
+    statsPollTimer = null;
+  }
+}
+
+async function refreshAll(){
+  updateRelay((await chars.relay.readValue()).getUint8(0));
+  updateChildlock((await chars.childlock.readValue()).getUint8(0));
+  const modeStr = dec.decode(await chars.timermode.readValue());
+  updateTimerMode(modeStr);
+  updatePowerMode(dec.decode(await chars.powermode.readValue()));
+  updateActualDuration(dec.decode(await chars.actualduration.readValue()));
+  updatePower((await chars.power.readValue()).getFloat32(0, true));
+  updateVoltage((await chars.voltage.readValue()).getFloat32(0, true));
+  updateCurrent((await chars.current.readValue()).getFloat32(0, true));
+  updateEnergy((await chars.energy.readValue()).getFloat32(0, true));
+  updateWifiSignal((await chars.wifisignal.readValue()).getFloat32(0, true));
+  try {
+    updateTimerStatus(dec.decode(await chars.timerstatus.readValue()));
+  } catch (err) {
+    console.warn('TimerStatus read failed:', err);
+  }
+  try {
+    const confStr = dec.decode(await chars.timerconf.readValue());
+    applyTimerConfToUI(modeStr, confStr);
+  } catch (err) {
+    console.warn('TimerConf read failed:', err);
+  }
+}
+
+function updateRelay(v){
+  const on = v === 1;
+  relaySwitch.classList.toggle('on', on);
+  relaySub.textContent = on ? 'ON' : 'OFF';
+}
+function updateChildlock(v){
+  childlockSwitch.classList.toggle('on', v === 1);
+}
+function updateTimerMode(v){
+  lastTimerMode = v || 'OFF';
+  timerModeValue.textContent = lastTimerMode;
+  activateTab(MODE_TO_TAB[lastTimerMode] || 'weekly');
+  updateTimerSummary(lastTimerMode, lastTimerStatus);
+}
+function updateTimerStatus(v){
+  lastTimerStatus = v || '';
+  updateTimerSummary(lastTimerMode, lastTimerStatus);
+}
+function updateActualDuration(v){
+  actualDurationValue.textContent = v || '–';
+}
+function updatePowerMode(v){
+  if (v) powerModeSelect.value = v;
+}
+function updateWifiSignal(v){
+  wifiSignalBadge.style.display = 'inline';
+  wifiSignalValue.textContent = Math.round(v);
+}
+function updatePower(v){
+  powerValue.textContent = (Math.round(v * 10) / 10) + ' W';
+}
+function updateVoltage(v){
+  voltageValue.textContent = (Math.round(v * 10) / 10) + ' V';
+}
+function updateCurrent(v){
+  currentValue.textContent = (Math.round(v * 1000) / 1000) + ' A';
+}
+function updateEnergy(v){
+  energyValue.textContent = (Math.round(v * 1000) / 1000) + ' kWh';
+}
+
+relaySwitch.addEventListener('click', async () => {
+  if (relaySwitch.classList.contains('disabled') || !activeTransport) return;
+  const next = !relaySwitch.classList.contains('on');
+  try {
+    await activeTransport.write('relay', next);
+  } catch (err) {
+    showWriteStatus('Relay write failed: ' + err.message, false);
+  }
+});
+childlockSwitch.addEventListener('click', async () => {
+  if (childlockSwitch.classList.contains('disabled') || !activeTransport) return;
+  const next = !childlockSwitch.classList.contains('on');
+  try {
+    await activeTransport.write('childlock', next);
+  } catch (err) {
+    showWriteStatus('ChildLock write failed: ' + err.message, false);
+  }
+});
+powerModeSelect.addEventListener('change', async () => {
+  if (powerModeSelect.disabled || !activeTransport) return;
+  try {
+    await activeTransport.write('powermode', powerModeSelect.value);
+  } catch (err) {
+    showWriteStatus('PowerONMode write failed: ' + err.message, false);
+  }
+});
+
+disconnectBtn.addEventListener('click', disconnect);
+
+async function setTimer(mode){
+  if (!activeTransport) return;
+  const value = document.getElementById('output').value.trim();
+  if (!value){
+    showWriteStatus('Build or paste a TimerConf string first.', false);
+    return;
+  }
+  try {
+    await activeTransport.write('timerconf', value);
+    await activeTransport.write('timermode', mode);
+    showWriteStatus('Set TimerMode to ' + mode + ' with that schedule.', true);
+  } catch (err) {
+    showWriteStatus('Write failed: ' + err.message, false);
+  }
+}
+document.getElementById('setWeeklyBtn').addEventListener('click', () => setTimer('Weekly'));
+document.getElementById('setWeeklySingleBtn').addEventListener('click', () => setTimer('WeeklySingle'));
+document.getElementById('setDailyBtn').addEventListener('click', () => setTimer('Daily'));
+document.getElementById('setDailySingleBtn').addEventListener('click', () => setTimer('DailySingle'));
+document.getElementById('setDurationBtn').addEventListener('click', () => setTimer('Duration'));
+
+timerOffBtns.forEach(btn => btn.addEventListener('click', async () => {
+  if (!activeTransport) return;
+  try {
+    await activeTransport.write('timermode', 'OFF');
+    showWriteStatus('TimerMode set to OFF.', true);
+  } catch (err) {
+    showWriteStatus('Write failed: ' + err.message, false);
+  }
+}));
+
+/* --- tabs --- */
+function activateTab(tabName){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + tabName));
+  if (tabName === 'weekly') setOutput(generateSchedule());
+  else if (tabName === 'daily') updateDailyOutput();
+  else if (tabName === 'duration') updateDurationOutput();
+}
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => activateTab(tab.dataset.tab));
+});
+
+/* --- weekly grid --- */
+const DAY_TOKENS = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const HOURS = 24;
+const gridEl = document.getElementById('grid');
+const state = Array.from({length:7}, () => Array(HOURS).fill(false));
+
+function buildGrid(){
+  gridEl.innerHTML = '';
+  gridEl.appendChild(document.createElement('div'));
+  DAY_LABELS.forEach(d => {
+    const el = document.createElement('div');
+    el.className = 'day-label'; el.textContent = d;
+    gridEl.appendChild(el);
+  });
+  for (let h = 0; h < HOURS; h++){
+    const label = document.createElement('div');
+    label.className = 'hour-label';
+    label.textContent = String(h).padStart(2,'0') + ':00';
+    gridEl.appendChild(label);
+    for (let d = 0; d < 7; d++){
+      const cell = document.createElement('div');
+      cell.className = 'cell'; cell.dataset.day = d; cell.dataset.hour = h;
+      gridEl.appendChild(cell);
+    }
+  }
+}
+buildGrid();
+
+function generateSchedule(){
+  const runs = [];
+  for (let d=0; d<7; d++){
+    let h = 0;
+    while (h < HOURS){
+      if (state[d][h]){
+        const start = h;
+        while (h < HOURS && state[d][h]) h++;
+        runs.push({day:d, start, end:h});
+      } else { h++; }
+    }
+  }
+  const merged = new Map();
+  runs.forEach(r => {
+    const key = r.start + '-' + r.end;
+    if (!merged.has(key)) merged.set(key, new Set());
+    merged.get(key).add(r.day);
+  });
+  const entries = [];
+  for (const [key, days] of merged.entries()){
+    const [start, end] = key.split('-').map(Number);
+    const onStr = String(start).padStart(2,'0') + '00';
+    const offStr = String(end).padStart(2,'0') + '00';
+    const dayStr = Array.from(days).sort((a,b)=>a-b).map(d => DAY_TOKENS[d]).join('');
+    entries.push(onStr + '-' + offStr + ':' + dayStr);
+  }
+  return entries.join(';');
+}
+
+function setOutput(str){
+  document.getElementById('output').value = str;
+  writeStatus.textContent = '';
+}
+
+function applyTimerConfToUI(mode, confStr){
+  confStr = (confStr || '').trim();
+  if (!confStr) return;
+
+  if (mode === 'Weekly' || mode === 'WeeklySingle'){
+    for (let d=0; d<7; d++) for (let h=0; h<HOURS; h++) state[d][h] = false;
+    confStr.split(';').forEach(entry => {
+      const m = entry.trim().match(/^(\d{2})(\d{2})-(\d{2})(\d{2}):([A-Za-z]+)$/);
+      if (!m) return;
+      const startH = parseInt(m[1], 10);
+      const endH = parseInt(m[3], 10);
+      const days = [];
+      for (let i = 0; i < m[5].length; i += 2){
+        const idx = DAY_TOKENS.indexOf(m[5].substr(i, 2));
+        if (idx >= 0) days.push(idx);
+      }
+      days.forEach(d => {
+        for (let h = startH; h < endH && h < HOURS; h++) state[d][h] = true;
+      });
+    });
+    gridEl.querySelectorAll('.cell').forEach(cell => {
+      const d = +cell.dataset.day, h = +cell.dataset.hour;
+      cell.classList.toggle('active', state[d][h]);
+    });
+  } else if (mode === 'Daily' || mode === 'DailySingle'){
+    const m = confStr.match(/^(\d{2}:\d{2}:\d{2})-(\d{2}:\d{2}:\d{2})$/);
+    if (m){
+      document.getElementById('dailyStart').value = m[1];
+      document.getElementById('dailyEnd').value = m[2];
+    }
+  } else if (mode === 'Duration'){
+    const m = confStr.match(/^(\d{2}:\d{2}:\d{2})\/(\d{2}:\d{2}:\d{2})$/);
+    if (m){
+      document.getElementById('durationOn').value = m[1];
+      document.getElementById('durationOff').value = m[2];
+    }
+  }
+  setOutput(confStr);
+}
+
+let painting = false, paintValue = true;
+let touchGestureMode = null;
+let touchStartX = 0, touchStartY = 0, touchLastX = 0, touchLastY = 0;
+let touchHoldTimer = null;
+const TOUCH_HOLD_MS = 160;
+const TOUCH_MOVE_THRESHOLD = 8;
+const gridScrollEl = document.getElementById('gridScroll');
+
+function setCell(cellEl, value){
+  const d = +cellEl.dataset.day, h = +cellEl.dataset.hour;
+  state[d][h] = value;
+  cellEl.classList.toggle('active', value);
+  setOutput(generateSchedule());
+}
+
+gridEl.addEventListener('pointerdown', e => {
+  const cell = e.target.closest('.cell');
+  if (!cell) return;
+  paintValue = !cell.classList.contains('active');
+
+  if (e.pointerType === 'touch'){
+    touchGestureMode = null;
+    touchStartX = e.clientX; touchStartY = e.clientY; touchLastX = e.clientX; touchLastY = e.clientY;
+    clearTimeout(touchHoldTimer);
+    touchHoldTimer = setTimeout(() => {
+      if (touchGestureMode === null){
+        touchGestureMode = 'paint';
+        painting = true;
+        setCell(cell, paintValue);
+        gridEl.setPointerCapture(e.pointerId);
+      }
+    }, TOUCH_HOLD_MS);
+  } else {
+    painting = true;
+    setCell(cell, paintValue);
+    gridEl.setPointerCapture(e.pointerId);
+  }
+});
+gridEl.addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch'){
+    if (touchGestureMode === null){
+      const dx = e.clientX - touchStartX;
+      const dy = e.clientY - touchStartY;
+      if (Math.abs(dx) < TOUCH_MOVE_THRESHOLD && Math.abs(dy) < TOUCH_MOVE_THRESHOLD) return;
+      clearTimeout(touchHoldTimer);
+      touchGestureMode = 'scroll';
+    }
+    if (touchGestureMode === 'scroll'){
+      window.scrollBy(0, touchLastY - e.clientY);
+      gridScrollEl.scrollLeft -= (e.clientX - touchLastX);
+      touchLastX = e.clientX;
+      touchLastY = e.clientY;
+      return;
+    }
+  }
+  if (!painting) return;
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const cell = el && el.closest('.cell');
+  if (cell) setCell(cell, paintValue);
+});
+gridEl.addEventListener('pointerup', e => {
+  clearTimeout(touchHoldTimer);
+  if (e.pointerType === 'touch' && touchGestureMode === null){
+    const cell = e.target.closest('.cell');
+    if (cell) setCell(cell, paintValue);
+  }
+  painting = false;
+  touchGestureMode = null;
+});
+gridEl.addEventListener('pointercancel', () => { clearTimeout(touchHoldTimer); painting = false; touchGestureMode = null; });
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  for (let d=0; d<7; d++) for (let h=0; h<HOURS; h++) state[d][h] = false;
+  gridEl.querySelectorAll('.cell.active').forEach(c => c.classList.remove('active'));
+  setOutput(generateSchedule());
+});
+
+function formatTimeInput(value, fallback){
+  if (!value) return fallback;
+  return value.length === 5 ? value + ':00' : value;
+}
+function updateDailyOutput(){
+  const start = formatTimeInput(document.getElementById('dailyStart').value, '00:00:00');
+  const end = formatTimeInput(document.getElementById('dailyEnd').value, '00:00:00');
+  setOutput(start + '-' + end);
+}
+function updateDurationOutput(){
+  const on = formatTimeInput(document.getElementById('durationOn').value, '00:00:00');
+  const off = formatTimeInput(document.getElementById('durationOff').value, '00:00:00');
+  setOutput(on + '/' + off);
+}
+document.getElementById('dailyStart').addEventListener('input', updateDailyOutput);
+document.getElementById('dailyEnd').addEventListener('input', updateDailyOutput);
+document.getElementById('durationOn').addEventListener('input', updateDurationOutput);
+document.getElementById('durationOff').addEventListener('input', updateDurationOutput);
+updateDailyOutput();
+
+</script>
+</body>
+</html>
