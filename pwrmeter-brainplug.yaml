@@ -1,5 +1,5 @@
 #giturl: "https://github.com/BrAiNeeBug/BrAiNPlug"
-#BrAiNPlug min.Version 1.4.2
+#BrAiNPlug min.Version 1.4.3
 substitutions:
   device_name: brainplug
   friendly_name: "pwrmeter_brainplug"

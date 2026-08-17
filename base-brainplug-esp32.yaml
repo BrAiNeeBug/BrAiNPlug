@@ -4,9 +4,10 @@ substitutions:
   friendly_name: "base32_brainplug"
   schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/web/wsb.html"
   localdomain: ".local"
+  mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.4.2_ESP32
+  comment: BrAiN_Plug_1.4.3_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   on_boot:
@@ -72,11 +73,12 @@ wifi:
   power_save_mode: LIGHT
   domain: ${localdomain}
 
-#mqtt:
-#  broker: homeassistant.yourdomain
-#  id: mqtt_client
-#  username: !secret mqtt_username
-#  password: !secret mqtt_password
+mqtt:
+  broker: ${mqttbroker}
+  id: mqtt_client
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  topic_prefix: ${device_name}
 
 debug:
 
@@ -361,6 +363,7 @@ text_sensor:
   - platform: template
     name: "ActualDuration"
     id: relay_duration_display
+    state_topic: "${device_name}/text_sensor/actualduration/state" #needed for mqtt idk..
     lambda: |-
       auto now = id(timesrc).now();
       if (!now.is_valid()) return {"NA"};

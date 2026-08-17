@@ -5,9 +5,10 @@ substitutions:
   schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/web/wsb.html"
   board_type: esp8266
   localdomain: ".local"
+  mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.4.2
+  comment: BrAiN_Plug_1.4.3
   name: ${device_name}
   friendly_name: ${friendly_name}
   on_boot:
@@ -82,11 +83,12 @@ wifi:
   power_save_mode: NONE #leave on NONE otherwise your plug will beep when relay is off :D
   domain: ${localdomain}
 
-#mqtt:
-#  broker: homeassistant.yourdomain
-#  id: mqtt_client
-#  username: !secret mqtt_username
-#  password: !secret mqtt_password
+mqtt:
+  broker: ${mqttbroker}
+  id: mqtt_client
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  topic_prefix: ${device_name}
 
 captive_portal:
 
@@ -357,6 +359,7 @@ text_sensor:
   - platform: template
     name: "ActualDuration"
     id: relay_duration_display
+    state_topic: "${device_name}/text_sensor/actualduration/state" #needed for mqtt idk..
     lambda: |-
       auto now = id(timesrc).now();
       if (!now.is_valid()) return {"NA"};

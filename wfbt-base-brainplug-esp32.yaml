@@ -5,9 +5,10 @@ substitutions:
   friendly_name: "wfbt_base32_brainplug"
   schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/web/wsb.html"
   localdomain: ".local"
+  mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.5.9_ESP32
+  comment: BrAiN_Plug_1.6.0_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -101,6 +102,13 @@ globals:
     restore_value: false
     initial_value: "false"
 
+mqtt:
+  broker: ${mqttbroker}
+  id: mqtt_client
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  topic_prefix: ${device_name}
+
 ota:
   - platform: esphome
     password: !secret ota_password
@@ -116,12 +124,6 @@ wifi:
   reboot_timeout: 0s
   power_save_mode: LIGHT
   domain: ${localdomain}
-
-#mqtt:
-#  broker: homeassistant.yourdomain
-#  id: mqtt_client
-#  username: !secret mqtt_username
-#  password: !secret mqtt_password
 
 debug:
 
@@ -473,7 +475,6 @@ esp32_ble_server:
               }
               return std::vector<uint8_t>(s.begin(), s.end());
 
-  max_clients: 2
 time:
   - platform: sntp
     id: timesrc
@@ -674,6 +675,8 @@ text_sensor:
   - platform: template
     name: "ActualDuration"
     id: relay_duration_display
+    state_topic: "${device_name}/text_sensor/actualduration/state" #needed for mqtt idk..
+    update_interval: 5min
     lambda: |-
       auto now = id(timesrc).now();
       if (!now.is_valid()) return {"NA"};
@@ -693,7 +696,16 @@ text_sensor:
     icon: "mdi:run"
     web_server:
       sorting_weight: 6
-    update_interval: 5min
+  - platform: template
+    name: "TimerStatus"
+    id: timer_status_display
+    icon: "mdi:timer-alert-outline"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: |-
+      if (id(timer_mode) == 0) return std::string("OFF");
+      if (!id(time_synced)) return std::string("No time sync");
+      return std::string("Active");
   - platform: template
     name: "WeeklyStatus"
     id: weekly_status_display
@@ -818,6 +830,7 @@ switch:
           id(relay).publish_state(true);
       - ble_server.characteristic.notify:
           id: ble_relay_char
+      - component.update: relay_duration_display
     on_turn_off:
       - lambda: |-
           id(relay_state) = 0;
@@ -828,6 +841,7 @@ switch:
           id(relay).publish_state(false);
       - ble_server.characteristic.notify:
           id: ble_relay_char
+      - component.update: relay_duration_display
   - platform: template
     name: "Switch"
     id: relay
