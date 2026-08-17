@@ -896,7 +896,7 @@ async function connectBle(overridePin, targetName = ''){
     
     device.addEventListener('gattserverdisconnected', onDisconnected);
 
-    const GATT_CONNECT_RETRIES = 3;
+    const GATT_CONNECT_RETRIES = 4;
     const GATT_CONNECT_RETRY_DELAY_MS = 800;
     let connectErr;
     gattServer = null;
