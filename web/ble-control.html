@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>BrAiNPlug — BLE-Control</title>
+<title>BrAiNPlug — Control</title>
 <style>
   :root{
     --bg: #14171a;
@@ -32,17 +32,39 @@
     background:var(--panel); border:1px solid var(--border);
     border-radius:10px; padding:16px; margin-bottom:16px;
   }
-  .panel-title{
-    font-size:11px; text-transform:uppercase; letter-spacing:0.08em;
-    color:var(--muted); margin:0 0 12px 0; font-weight:600;
+  
+  .panel-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 0px;
+    flex-wrap: wrap;
   }
+  .panel-header.has-form{
+    margin-bottom: 14px;
+  }
+
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .panel-title {
+    margin: 0;
+    font-weight: 600;
+  }
+
+  .panel-header-left{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
   .hint{ font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; }
-  .remember-row{
-    display:flex; align-items:center; gap:7px; margin-top:10px;
-    font-size:12px; color:var(--muted); cursor:pointer; user-select:none;
-    flex-wrap:wrap;
-  }
-  .remember-row input[type=checkbox]{ accent-color:var(--accent); cursor:pointer; flex:none; }
   .row-actions{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
 
   button{
@@ -56,7 +78,7 @@
   button:active:not(:disabled){ transform: translateY(1px); }
   button:disabled{ opacity:0.4; cursor:not-allowed; }
 
-  textarea, input[type=text]{
+  textarea, input[type=text], input[type=password]{
     width:100%; font-family:var(--mono); font-size:12.5px;
     background:var(--panel2); color:var(--text);
     border:1px solid var(--border); border-radius:7px; padding:10px; resize:vertical;
@@ -69,21 +91,20 @@
 
   .signal-badge{
     font-family:var(--mono); font-size:11px; font-weight:600;
-    padding:2px 8px; border-radius:20px;
+    padding:2px 8px; border-radius:20px; white-space:nowrap;
   }
   .signal-badge.wifi{ color:var(--ok); background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); }
   .signal-badge.bt{ color:#60a5fa; background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); }
 
   .status-grid{
-    display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;
+    display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; margin-top:14px;
   }
-  .status-grid.wide{ grid-template-columns:1fr; }
   .stat{
     background:var(--panel2); border:1px solid var(--border); border-radius:8px;
-    padding:10px 12px;
+    padding:12px 14px; min-height: 64px; display: flex; flex-direction: column; justify-content: center;
   }
   .stat-label{ font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; }
-  .stat-value{ font-size:18px; font-weight:700; margin-top:4px; font-family:var(--mono); }
+  .stat-value{ font-size:18px; font-weight:700; margin-top:6px; font-family:var(--mono); }
 
   .toggle-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .toggle-label{ font-size:13px; font-weight:600; }
@@ -109,7 +130,6 @@
   }
   .pmode-select:disabled{ opacity:0.4; cursor:not-allowed; }
 
-  /* --- timer panel: collapsible summary header --- */
   .timer-summary{
     display:flex; align-items:center; justify-content:space-between;
     cursor:pointer; user-select:none; -webkit-user-select:none;
@@ -118,7 +138,6 @@
   .timer-chevron{ color:var(--muted); font-size:11px; transition: transform 120ms; flex:none; margin-left:8px; }
   .timer-body{ margin-top:14px; }
 
-  /* --- tabs (schedule builder, same as wsb.html) --- */
   .tabs{ display:flex; align-items:center; gap:6px; margin-bottom:16px; border-bottom:1px solid var(--border); }
   .tab{
     font-family:var(--sans); font-size:12.5px; font-weight:600; color:var(--muted);
@@ -162,31 +181,40 @@
   .status.ok{ color:var(--ok); }
   .status.err{ color:var(--err); }
 
+  .connection-form{display:flex;flex-direction:column;gap:10px;}
+  .broker-settings{margin-top:2px;padding:12px;background:var(--panel2);border:1px solid var(--border);border-radius:8px;}
+  .broker-settings .panel-title{margin-bottom:10px;}
+  
+  .form-row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;}
+  .form-field{display:flex;flex-direction:column;gap:5px;min-width:140px;flex:1;}
+  .form-field label{font-size:11px;color:var(--muted);font-weight:600;}
+  .form-field input,.form-field select{width:100%;}
+  .name-field{flex:1.5;}
+  .mode-field{flex:1;}
+  .full-field{flex:100%;}
+  
+  .action-buttons-row{display:flex;gap:10px;margin-top:4px;}
+  .action-buttons-row button{flex:1;height:38px;white-space:nowrap;}
+
   @media (max-width: 480px){
     body{ padding:12px; }
     h1{ font-size:17px; }
     .subtitle{ font-size:12.5px; }
-    .panel{ padding:12px; border-radius:9px; }
-    /* Connect-Zeile: PIN-Feld + Buttons stapeln statt quetschen */
-    .row-actions{ flex-direction:column; align-items:stretch; }
-    .row-actions button{ width:100%; padding:12px 14px; font-size:14px; }
-    #pinInput{ max-width:none !important; width:100%; padding:12px; font-size:14px; }
-    /* größere Toggle-Switches für Finger statt Mauszeiger */
+    .panel{ padding:12px; }
+    .panel-header{ flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+    .action-buttons-row{ flex-direction:column; }
+    .action-buttons-row button{ width:100%; height:auto; padding:12px 14px; font-size:14px; }
     .switch{ width:50px; height:30px; }
     .switch .knob{ width:24px; height:24px; }
     .switch.on .knob{ transform: translateX(20px); }
-    .status-grid{ grid-template-columns:1fr 1fr; gap:8px; }
-    .stat{ padding:8px 10px; }
+    .stat{ padding:10px 12px; }
     .stat-value{ font-size:16px; }
-    /* Tabs: nicht abschneiden, kleiner Abstand */
     .tabs{ gap:2px; flex-wrap:wrap; }
     .tab{ font-size:12px; padding:8px 6px; }
     .timer-off-link{ font-size:12px; padding:8px 4px; }
-    /* Grid-Zellen größer für Touch, horizontales Wischen bleibt über grid-scroll */
     .cell{ height:22px; }
     .hour-label{ line-height:22px; height:22px; }
     .grid-outer{ min-width:560px; }
-    /* Zeit-Eingaben untereinander statt nebeneinander gequetscht */
     .time-row{ flex-direction:column; align-items:stretch; gap:10px; }
     .time-row button{ width:100%; padding:12px; }
     input[type=time]{ width:100%; padding:10px; font-size:14px; }
@@ -195,31 +223,86 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — BLE-Control (1.5.9)</h1>
-  <p class="subtitle">Controls a BrAiNPlug ESP32 (e.g. Nous A8T) via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a></p>
+  <h1>BrAiNPlug — Control (1.6.0)</h1>
+  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
-    <p class="panel-title">Connection</p>
-    <div class="status-line">
-      <span class="dot" id="statusDot"></span>
-      <span id="statusText">Not connected</span>
-      <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
-      <span class="signal-badge bt" id="btSignalBadge" style="display:none;" title="Placeholder — real BLE RSSI not wired up yet, see esp_ble_gap_read_rssi() saga">BT –0 dBm</span>
+    <div class="panel-header has-form" id="panelHeader">
+      <div class="panel-header-left">
+        <div class="title-group" id="titleGroup">
+          <p class="panel-title">Plugs & Connection</p>
+          <button id="disconnectBtn" style="display:none;">Disconnect</button>
+        </div>
+        <div class="status-line" id="statusLine">
+          <span class="dot" id="statusDot"></span>
+          <span id="statusText">Not connected</span>
+          <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
+          <span class="signal-badge bt" id="btSignalBadge" style="display:none;">BLE-MODE</span>
+        </div>
+      </div>
     </div>
-    <div class="row-actions">
-      <input type="password" id="pinInput" placeholder="Key (min. 12 chars)" style="max-width:220px;" autocomplete="new-password" minlength="12">
-      <button id="connectBtn" class="primary">Connect</button>
-      <button id="disconnectBtn" disabled>Disconnect</button>
+
+    <div id="plugFormContainer">
+      <div id="plugList"></div>
+      <div class="connection-form">
+        <div class="form-row">
+          <div class="form-field name-field">
+            <label for="plugNameInput">Name / BT Name</label>
+            <input type="text" id="plugNameInput" placeholder="e.g. BrAiNPlug-Kitchen" autocomplete="off">
+          </div>
+          <div class="form-field mode-field">
+            <label for="plugModeSelect">Connection</label>
+            <select class="pmode-select" id="plugModeSelect">
+              <option value="ble">Bluetooth</option>
+              <option value="mqtt">MQTT</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="blePlugSettings">
+          <div class="form-field">
+            <label for="plugKeyInput">Bluetooth Key</label>
+            <input type="password" id="plugKeyInput" placeholder="Key (min. 12 chars)" autocomplete="new-password" minlength="12">
+          </div>
+        </div>
+
+        <div id="mqttPlugSettings" style="display:none;">
+          <div class="form-field full-field" style="margin-bottom: 10px;">
+            <label for="plugPrefixInput">MQTT topic_prefix</label>
+            <input type="text" id="plugPrefixInput" placeholder="e.g. brainplug" autocomplete="off">
+          </div>
+          <div class="broker-settings">
+            <div class="panel-title" style="margin-bottom:10px;">MQTT Broker Settings</div>
+            <div class="form-row">
+              <div class="form-field full-field">
+                <label for="brokerUrlInput">Broker URL</label>
+                <input type="text" id="brokerUrlInput" placeholder="ws://homeassistant.bk-net:9001" autocomplete="url">
+              </div>
+              <div class="form-field">
+                <label for="brokerUserInput">Username</label>
+                <input type="text" id="brokerUserInput" placeholder="optional" autocomplete="username">
+              </div>
+              <div class="form-field">
+                <label for="brokerPasswordInput">Password</label>
+                <input type="password" id="brokerPasswordInput" placeholder="optional" autocomplete="current-password">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-buttons-row">
+          <button id="addPlugBtn" class="primary">Add & Connect plug</button>
+          <button id="quickConnectBtn" class="primary">Quick Connect*</button>
+        </div>
+      </div>
+
+      <p class="hint">*Connects without saving.</p>
+      <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
     </div>
-    <label class="remember-row" for="rememberKey">
-      <input type="checkbox" id="rememberKey">
-      Remember-Key
-    </label>
-    <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
   </div>
 
   <div class="panel">
-    <p class="panel-title">Plug status</p>
+    <p class="panel-title" style="margin-bottom:12px;">Plug status</p>
     <div class="toggle-row">
       <div>
         <div class="toggle-label">Relay</div>
@@ -326,13 +409,14 @@
         <p class="hint">The plug repeats this ON/OFF cycle continuously. Not a clock time — a duration (HH:MM:SS each).</p>
       </div>
 
-      <p class="panel-title" style="margin-top:16px;">TimerConf string</p>
+      <p class="panel-title" style="margin-top:16px; margin-bottom:8px;">TimerConf string</p>
       <textarea id="output" spellcheck="false" rows="2" placeholder="Fills in automatically as you paint/pick above, or type/paste one directly."></textarea>
       <p class="status" id="writeStatus"></p>
     </div>
   </div>
 </div>
 
+<script src="mqtt_min.js"></script>
 <script>
 const SERVICE_UUID = 'a36c6568-2877-466d-ad19-bdbf301199a8';
 const CHAR_UUIDS = {
@@ -353,10 +437,22 @@ const CHAR_UUIDS = {
   timerstatus: '4195b034-6b66-4b12-82d2-5a8e28d4984f',
 };
 
-// Muss >= dem größtmöglichen Backoff-Delay im YAML sein (dort aktuell Cap bei 60s).
+const MQTT_DOMAINS = {
+  relay: 'switch', childlock: 'switch',
+  powermode: 'select', timermode: 'select',
+  timerconf: 'text',
+  power: 'sensor', voltage: 'sensor', current: 'sensor', energy: 'sensor',
+  wifisignal: 'sensor',
+  actualduration: 'text_sensor', timerstatus: 'text_sensor',
+};
+const MQTT_OBJECT_IDS = {
+  relay: 'switch', childlock: 'childlock',
+  powermode: 'poweronmode', timermode: 'timermode', timerconf: 'timerconf',
+  power: 'powerw', voltage: 'voltagev', current: 'currenta', energy: 'totalenergy',
+  actualduration: 'actualduration', wifisignal: 'wifisignal', timerstatus: 'timerstatus',
+};
+
 const AUTH_TIMEOUT_MS = 65000;
-// 12 Zeichen aus [A-Za-z0-9] (~71.5 bit) halten einem Offline-HMAC-SHA256-Bruteforce
-// selbst bei ~100 Mrd. Versuchen/s (großzügig geschätzte GPU-Farm) >1 Jahr stand.
 const MIN_KEY_LEN = 12;
 
 function waitForAuthNotify(timeoutMs){
@@ -384,16 +480,262 @@ async function hmacSha256(keyStr, msgBytes){
 let device = null, gattServer = null, chars = {};
 const enc = new TextEncoder();
 const dec = new TextDecoder();
-const LS_KEY = 'brainplug_key';
+const LS_PLUGS = 'brainplug_plugs';
+const LS_BROKER = 'brainplug_broker_url';
 
-const pinInput = document.getElementById('pinInput');
-const rememberKey = document.getElementById('rememberKey');
+function loadPlugs(){ try { return JSON.parse(localStorage.getItem(LS_PLUGS) || '[]'); } catch (err) { return []; } }
+function savePlugs(list){ try { localStorage.setItem(LS_PLUGS, JSON.stringify(list)); } catch (err) { console.warn('localStorage write failed:', err); } }
+function saveBrokerSettings(){
+  try {
+    localStorage.setItem(LS_BROKER, JSON.stringify({
+      url: brokerUrlInput.value.trim(),
+      username: brokerUserInput.value.trim(),
+      password: brokerPasswordInput.value
+    }));
+  } catch (err) { console.warn('localStorage write failed:', err); }
+}
+
+let plugs = loadPlugs();
+let activePlugId = null;
+
+const plugListEl = document.getElementById('plugList');
+function renderPlugList(){
+  plugListEl.innerHTML = '';
+  if (!plugs.length){
+    const p = document.createElement('p');
+    p.className = 'hint'; p.textContent = 'No plugs saved yet — add one below.';
+    plugListEl.appendChild(p);
+    return;
+  }
+  plugs.forEach(plug => {
+    const row = document.createElement('div');
+    row.className = 'toggle-row'; row.style.marginTop = '10px';
+    const left = document.createElement('div');
+    const sub = plug.mode === 'mqtt' ? ('MQTT · ' + plug.prefix) : 'Bluetooth';
+    left.innerHTML = '<div class="toggle-label">' + plug.name + '</div><div class="toggle-sub">' + sub + (plug.id === activePlugId ? ' · active' : '') + '</div>';
+    const actions = document.createElement('div');
+    actions.style.display = 'flex'; actions.style.gap = '6px';
+    const goBtn = document.createElement('button');
+    goBtn.textContent = plug.id === activePlugId ? 'Active' : 'Connect';
+    if (plug.id !== activePlugId) goBtn.className = 'primary';
+    goBtn.disabled = plug.id === activePlugId;
+    goBtn.addEventListener('click', () => selectPlug(plug));
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '×'; delBtn.title = 'Remove';
+    delBtn.addEventListener('click', () => {
+      plugs = plugs.filter(p => p.id !== plug.id);
+      savePlugs(plugs);
+      renderPlugList();
+    });
+    actions.appendChild(goBtn); actions.appendChild(delBtn);
+    row.appendChild(left); row.appendChild(actions);
+    plugListEl.appendChild(row);
+  });
+}
+renderPlugList();
+
+const plugModeSelect = document.getElementById('plugModeSelect');
+const plugPrefixInput = document.getElementById('plugPrefixInput');
+const plugKeyInput = document.getElementById('plugKeyInput');
+const blePlugSettings = document.getElementById('blePlugSettings');
+const mqttPlugSettings = document.getElementById('mqttPlugSettings');
+const brokerUrlInput = document.getElementById('brokerUrlInput');
+const brokerUserInput = document.getElementById('brokerUserInput');
+const brokerPasswordInput = document.getElementById('brokerPasswordInput');
+
+function syncPlugConnectionFields(){
+  const ble = plugModeSelect.value === 'ble';
+  blePlugSettings.style.display = ble ? '' : 'none';
+  mqttPlugSettings.style.display = ble ? 'none' : '';
+}
+plugModeSelect.addEventListener('change', syncPlugConnectionFields);
+syncPlugConnectionFields();
+
+document.getElementById('addPlugBtn').addEventListener('click', async () => {
+  const name = document.getElementById('plugNameInput').value.trim();
+  const mode = plugModeSelect.value;
+  const prefix = plugPrefixInput.value.trim();
+  const key = plugKeyInput.value.trim();
+
+  if (!name){ alert('Give the plug a name.'); return; }
+  if (mode === 'ble' && key.length < MIN_KEY_LEN){ alert(`Bluetooth Key must be at least ${MIN_KEY_LEN} characters.`); return; }
+  if (mode === 'mqtt' && !prefix){ alert('MQTT plugs need a topic_prefix.'); return; }
+
+  if (mode === 'mqtt') saveBrokerSettings();
+
+  const newPlug = { id: 'p' + Date.now(), name, mode, prefix, key: mode === 'ble' ? key : '' };
+  plugs.push(newPlug);
+  savePlugs(plugs);
+  document.getElementById('plugNameInput').value = '';
+  plugPrefixInput.value = '';
+  plugKeyInput.value = '';
+  renderPlugList();
+
+  await selectPlug(newPlug);
+});
+
+document.getElementById('quickConnectBtn').addEventListener('click', async () => {
+  const mode = plugModeSelect.value;
+  const key = plugKeyInput.value.trim();
+  const prefix = plugPrefixInput.value.trim();
+  const name = document.getElementById('plugNameInput').value.trim();
+
+  if (mode === 'ble') {
+    await connectBle(key, name);
+    return;
+  }
+
+  saveBrokerSettings();
+  const broker = brokerUrlInput.value.trim();
+  if (!broker){ statusText.textContent = 'Set Broker Settings first.'; return; }
+  if (!prefix){ statusText.textContent = 'Enter an MQTT topic_prefix.'; return; }
+
+  if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+  if (mqttClient){ try { mqttClient.end(true); } catch (err) {} mqttClient = null; }
+  activeTransport = null;
+  activePlugId = null;
+  renderPlugList();
+  setConnectedUI(false);
+  statusText.textContent = 'Connecting via MQTT…';
+  try {
+    await mqttConnect(broker, prefix, { username: brokerUserInput.value.trim(), password: brokerPasswordInput.value });
+    activeTransport = mqttTransport;
+    statusText.textContent = 'MQTT Quick Connect';
+    setConnectedUI(true);
+  } catch (err) {
+    statusText.textContent = 'MQTT connect failed: ' + err.message;
+    activePlugId = null;
+    renderPlugList();
+    setConnectedUI(false);
+  }
+});
+
 try {
-  const saved = localStorage.getItem(LS_KEY);
-  if (saved){ pinInput.value = saved; rememberKey.checked = true; }
+  const savedBroker = JSON.parse(localStorage.getItem(LS_BROKER) || '{}');
+  if (typeof savedBroker === 'string') brokerUrlInput.value = savedBroker;
+  else {
+    brokerUrlInput.value = savedBroker.url || '';
+    brokerUserInput.value = savedBroker.username || '';
+    brokerPasswordInput.value = savedBroker.password || '';
+  }
 } catch (err) { console.warn('localStorage read failed:', err); }
 
-const connectBtn = document.getElementById('connectBtn');
+let activeTransport = null;
+let mqttClient = null;
+let mqttPrefix = '';
+let lastRawTimerConf = '';
+
+function mqttTopic(key, kind){
+  return mqttPrefix + '/' + MQTT_DOMAINS[key] + '/' + MQTT_OBJECT_IDS[key] + '/' + kind;
+}
+
+function mqttConnect(brokerUrl, prefix, auth = {}){
+  return new Promise((resolve, reject) => {
+    mqttPrefix = prefix;
+    let settled = false;
+    const client = mqtt.connect(brokerUrl, { connectTimeout: 10000, reconnectPeriod: 2000, username: auth.username || undefined, password: auth.password || undefined });
+    const failTimer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      client.end(true);
+      reject(new Error('timeout'));
+    }, 11000);
+    client.on('connect', () => {
+      if (settled) return;
+      const subs = Object.keys(MQTT_OBJECT_IDS).map(k => mqttTopic(k, 'state'));
+      client.subscribe(subs, err => {
+        clearTimeout(failTimer);
+        if (err){ settled = true; reject(err); return; }
+        settled = true;
+        mqttClient = client;
+        resolve();
+      });
+    });
+    client.on('error', err => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(failTimer);
+      reject(err);
+    });
+    client.on('message', (topic, payloadBuf) => {
+      const str = payloadBuf.toString();
+      for (const key of Object.keys(MQTT_OBJECT_IDS)){
+        if (topic === mqttTopic(key, 'state')){ handleMqttState(key, str); return; }
+      }
+    });
+  });
+}
+
+function handleMqttState(key, str){
+  switch (key){
+    case 'relay': updateRelay(str === 'ON' ? 1 : 0); break;
+    case 'childlock': updateChildlock(str === 'ON' ? 1 : 0); break;
+    case 'powermode': updatePowerMode(str); break;
+    case 'timermode': updateTimerMode(str); applyTimerConfToUI(str, lastRawTimerConf); break;
+    case 'timerconf': lastRawTimerConf = str; applyTimerConfToUI(lastTimerMode, str); break;
+    case 'power': updatePower(parseFloat(str)); break;
+    case 'voltage': updateVoltage(parseFloat(str)); break;
+    case 'current': updateCurrent(parseFloat(str)); break;
+    case 'energy': updateEnergy(parseFloat(str)); break;
+    case 'actualduration': updateActualDuration(str); break;
+    case 'wifisignal': updateWifiSignal(parseFloat(str)); break;
+    case 'timerstatus': updateTimerStatus(str); break;
+  }
+}
+
+const bleTransport = {
+  kind: 'ble',
+  write(key, value){
+    switch (key){
+      case 'relay': return queueWrite(() => chars.relay.writeValue(new Uint8Array([value ? 1 : 0])), 'relay');
+      case 'childlock': return queueWrite(() => chars.childlock.writeValue(new Uint8Array([value ? 1 : 0])), 'childlock');
+      case 'powermode': return queueWrite(() => chars.powermode.writeValue(enc.encode(value)), 'powermode');
+      case 'timermode': return queueWrite(() => chars.timermode.writeValue(enc.encode(value)), 'timermode');
+      case 'timerconf': return queueWrite(() => chars.timerconf.writeValue(enc.encode(value)), 'timerconf');
+    }
+  }
+};
+const mqttTransport = {
+  kind: 'mqtt',
+  write(key, value){
+    const payload = (key === 'relay' || key === 'childlock') ? (value ? 'ON' : 'OFF') : String(value);
+    return new Promise((resolve, reject) => {
+      mqttClient.publish(mqttTopic(key, 'command'), payload, err => err ? reject(err) : resolve());
+    });
+  }
+};
+
+async function selectPlug(plug){
+  if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+  if (mqttClient){ try { mqttClient.end(true); } catch (err) { /* ignore */ } mqttClient = null; }
+  activeTransport = null;
+  setConnectedUI(false);
+
+  if (plug.mode === 'ble'){
+    activePlugId = plug.id;
+    plugKeyInput.value = plug.key || '';
+    renderPlugList();
+    await connectBle(plug.key, plug.name);
+    return;
+  }
+
+  const broker = brokerUrlInput.value.trim();
+  if (!broker){ statusText.textContent = 'Set Broker Settings first.'; return; }
+  activePlugId = plug.id; renderPlugList();
+  statusText.textContent = 'Connecting to ' + plug.name + ' via MQTT…';
+  try {
+    await mqttConnect(broker, plug.prefix, { username: brokerUserInput.value.trim(), password: brokerPasswordInput.value });
+    activeTransport = mqttTransport;
+    statusText.textContent = plug.name;
+    setConnectedUI(true);
+  } catch (err) {
+    statusText.textContent = 'MQTT connect failed: ' + err.message;
+    activePlugId = null;
+    renderPlugList();
+    setConnectedUI(false);
+  }
+}
+
 const disconnectBtn = document.getElementById('disconnectBtn');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
@@ -418,22 +760,29 @@ const timerSummaryText = document.getElementById('timerSummaryText');
 const timerOffBtns = document.querySelectorAll('.timer-off-link');
 const writeStatus = document.getElementById('writeStatus');
 const setBtns = ['setWeeklyBtn','setWeeklySingleBtn','setDailyBtn','setDailySingleBtn','setDurationBtn'].map(id => document.getElementById(id));
+const plugFormContainer = document.getElementById('plugFormContainer');
+const panelHeader = document.getElementById('panelHeader');
 
 if (!navigator.bluetooth) {
   document.getElementById('unsupportedHint').style.display = 'block';
-  connectBtn.disabled = true;
 }
 
 function setConnectedUI(connected){
   statusDot.classList.toggle('connected', connected);
-  connectBtn.disabled = connected;
+  disconnectBtn.style.display = connected ? 'inline-block' : 'none';
   disconnectBtn.disabled = !connected;
   relaySwitch.classList.toggle('disabled', !connected);
   childlockSwitch.classList.toggle('disabled', !connected);
   powerModeSelect.disabled = !connected;
   setBtns.forEach(b => b.disabled = !connected);
   timerOffBtns.forEach(b => b.disabled = !connected);
-  if (!connected){
+
+  if (connected) {
+    plugFormContainer.style.display = 'none';
+    panelHeader.classList.remove('has-form');
+  } else {
+    plugFormContainer.style.display = '';
+    panelHeader.classList.add('has-form');
     statusText.textContent = 'Not connected';
     relaySub.textContent = 'unknown';
     powerValue.textContent = '–';
@@ -452,7 +801,6 @@ function setConnectedUI(connected){
   }
 }
 
-/* --- timer panel: collapsible header + auto-selected tab --- */
 let timerCollapsed = true;
 function setTimerCollapsed(collapsed){
   timerCollapsed = collapsed;
@@ -489,12 +837,8 @@ function showWriteStatus(msg, ok){
   writeStatus.className = 'status ' + (ok ? 'ok' : 'err');
 }
 
-// All BLE writes (relay, childlock, powermode, timer) go through here.
-// GATT can only do one operation at a time anyway, and if one hangs due
-// to a timing hiccup, a hard timeout + a couple of retries make sure the
-// action still lands instead of silently getting lost.
 let writeChain = Promise.resolve();
-const WRITE_TIMEOUT_MS = 4000;
+const WRITE_TIMEOUT_MS = 5000;
 const WRITE_MAX_RETRIES = 2;
 
 function withTimeout(promise, ms){
@@ -523,29 +867,56 @@ function queueWrite(fn, label){
     }
     throw lastErr;
   });
-  // Keep the chain alive even after a failure, so later writes still queue up.
   writeChain = run.catch(() => {});
   return run;
 }
 
-async function connect(){
-  const pin = pinInput.value;
+async function connectBle(overridePin, targetName = ''){
+  const pin = overridePin || plugKeyInput.value.trim();
   if (!pin){
     statusText.textContent = 'Enter the Key first.';
+    activePlugId = null; renderPlugList(); setConnectedUI(false);
     return;
   }
   if (pin.length < MIN_KEY_LEN){
     statusText.textContent = `Key too short (min. ${MIN_KEY_LEN} chars).`;
+    activePlugId = null; renderPlugList(); setConnectedUI(false);
     return;
   }
   try {
+    const filters = [{ services: [SERVICE_UUID] }];
+    if (targetName) {
+      filters.push({ namePrefix: targetName });
+    }
+    
     device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }],
+      filters: filters,
       optionalServices: [SERVICE_UUID]
     });
+    
     device.addEventListener('gattserverdisconnected', onDisconnected);
-    statusText.textContent = 'Connecting…';
-    gattServer = await device.gatt.connect();
+
+    const GATT_CONNECT_RETRIES = 4;
+    const GATT_CONNECT_RETRY_DELAY_MS = 800;
+    let connectErr;
+    gattServer = null;
+    for (let attempt = 1; attempt <= GATT_CONNECT_RETRIES; attempt++){
+      statusText.textContent = GATT_CONNECT_RETRIES > 1
+        ? `Connecting… (attempt ${attempt}/${GATT_CONNECT_RETRIES})`
+        : 'Connecting…';
+      try {
+        gattServer = await device.gatt.connect();
+        connectErr = null;
+        break;
+      } catch (e) {
+        connectErr = e;
+        console.warn(`GATT connect attempt ${attempt} failed:`, e.message);
+        if (attempt < GATT_CONNECT_RETRIES) {
+          await new Promise(r => setTimeout(r, GATT_CONNECT_RETRY_DELAY_MS));
+        }
+      }
+    }
+    if (!gattServer) throw connectErr;
     const service = await gattServer.getPrimaryService(SERVICE_UUID);
     for (const [key, uuid] of Object.entries(CHAR_UUIDS)){
       chars[key] = await service.getCharacteristic(uuid);
@@ -554,39 +925,39 @@ async function connect(){
     const nonceBytes = new Uint8Array(nonceVal.buffer, nonceVal.byteOffset, nonceVal.byteLength);
     const response = await hmacSha256(pin, nonceBytes);
 
-    // Wichtig: ESP32 verzögert die Auth-Antwort absichtlich (Anti-Bruteforce-Backoff),
-    // daher NICHT sofort lesen, sondern auf die Notify warten.
     await chars.auth.startNotifications();
     const authPromise = waitForAuthNotify(AUTH_TIMEOUT_MS);
     await chars.response.writeValue(response);
 
     let authValue;
-    statusText.textContent = 'Waiting for plug (may take a bit after wrong attempts)…';
+    statusText.textContent = 'Waiting for plug…';
     try {
       authValue = await authPromise;
     } catch (e) {
       statusText.textContent = 'Auth timeout — plug still in backoff from recent wrong attempts, try again later.';
-      device.gatt.disconnect();
+      if (device && device.gatt) device.gatt.disconnect();
+      activePlugId = null; renderPlugList(); setConnectedUI(false);
       return;
     }
     if (authValue !== 1){
       statusText.textContent = 'Wrong PIN — rejected by the plug.';
-      device.gatt.disconnect();
+      if (device && device.gatt) device.gatt.disconnect();
+      activePlugId = null; renderPlugList(); setConnectedUI(false);
       return;
     }
     await subscribeAll();
     await refreshAll();
-	startStatsPolling();
-    statusText.textContent = device.name || 'BrAiNPlug';
+    startStatsPolling();
+    activeTransport = bleTransport;
+    statusText.textContent = device.name || targetName || 'BrAiNPlug';
     setConnectedUI(true);
     btSignalBadge.style.display = 'inline';
-    try {
-      if (rememberKey.checked) localStorage.setItem(LS_KEY, pin);
-      else localStorage.removeItem(LS_KEY);
-    } catch (err) { console.warn('localStorage write failed:', err); }
   } catch (err) {
     statusText.textContent = 'Connection failed: ' + err.message;
     statusDot.classList.add('err');
+    activePlugId = null;
+    renderPlugList();
+    setConnectedUI(false);
     setTimeout(() => statusDot.classList.remove('err'), 2500);
   }
 }
@@ -595,12 +966,19 @@ function onDisconnected(){
   stopStatsPolling();
   chars = {};
   writeChain = Promise.resolve();
+  if (activeTransport && activeTransport.kind === 'ble') activeTransport = null;
+  activePlugId = null;
+  renderPlugList();
   setConnectedUI(false);
 }
 
 async function disconnect(){
   stopStatsPolling();
-  if (device && device.gatt.connected) device.gatt.disconnect();
+  if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
+  if (mqttClient){ try { mqttClient.end(true); } catch (err) { /* ignore */ } mqttClient = null; }
+  activeTransport = null;
+  activePlugId = null; 
+  renderPlugList();
   setConnectedUI(false);
 }
 
@@ -719,49 +1097,44 @@ function updateEnergy(v){
 }
 
 relaySwitch.addEventListener('click', async () => {
-  if (relaySwitch.classList.contains('disabled')) return;
-  const next = relaySwitch.classList.contains('on') ? 0 : 1;
+  if (relaySwitch.classList.contains('disabled') || !activeTransport) return;
+  const next = !relaySwitch.classList.contains('on');
   try {
-    await queueWrite(() => chars.relay.writeValue(new Uint8Array([next])), 'relay');
+    await activeTransport.write('relay', next);
   } catch (err) {
     showWriteStatus('Relay write failed: ' + err.message, false);
   }
 });
 childlockSwitch.addEventListener('click', async () => {
-  if (childlockSwitch.classList.contains('disabled')) return;
-  const next = childlockSwitch.classList.contains('on') ? 0 : 1;
+  if (childlockSwitch.classList.contains('disabled') || !activeTransport) return;
+  const next = !childlockSwitch.classList.contains('on');
   try {
-    await queueWrite(() => chars.childlock.writeValue(new Uint8Array([next])), 'childlock');
+    await activeTransport.write('childlock', next);
   } catch (err) {
     showWriteStatus('ChildLock write failed: ' + err.message, false);
   }
 });
 powerModeSelect.addEventListener('change', async () => {
-  if (powerModeSelect.disabled) return;
+  if (powerModeSelect.disabled || !activeTransport) return;
   try {
-    await queueWrite(() => chars.powermode.writeValue(enc.encode(powerModeSelect.value)), 'powermode');
+    await activeTransport.write('powermode', powerModeSelect.value);
   } catch (err) {
     showWriteStatus('PowerONMode write failed: ' + err.message, false);
   }
 });
 
-connectBtn.addEventListener('click', connect);
 disconnectBtn.addEventListener('click', disconnect);
-rememberKey.addEventListener('change', () => {
-  if (!rememberKey.checked){
-    try { localStorage.removeItem(LS_KEY); } catch (err) { console.warn('localStorage remove failed:', err); }
-  }
-});
 
 async function setTimer(mode){
+  if (!activeTransport) return;
   const value = document.getElementById('output').value.trim();
   if (!value){
     showWriteStatus('Build or paste a TimerConf string first.', false);
     return;
   }
   try {
-    await queueWrite(() => chars.timerconf.writeValue(enc.encode(value)), 'timerconf');
-    await queueWrite(() => chars.timermode.writeValue(enc.encode(mode)), 'timermode');
+    await activeTransport.write('timerconf', value);
+    await activeTransport.write('timermode', mode);
     showWriteStatus('Set TimerMode to ' + mode + ' with that schedule.', true);
   } catch (err) {
     showWriteStatus('Write failed: ' + err.message, false);
@@ -774,8 +1147,9 @@ document.getElementById('setDailySingleBtn').addEventListener('click', () => set
 document.getElementById('setDurationBtn').addEventListener('click', () => setTimer('Duration'));
 
 timerOffBtns.forEach(btn => btn.addEventListener('click', async () => {
+  if (!activeTransport) return;
   try {
-    await queueWrite(() => chars.timermode.writeValue(enc.encode('OFF')), 'timermode-off');
+    await activeTransport.write('timermode', 'OFF');
     showWriteStatus('TimerMode set to OFF.', true);
   } catch (err) {
     showWriteStatus('Write failed: ' + err.message, false);
@@ -794,7 +1168,7 @@ document.querySelectorAll('.tab').forEach(tab => {
   tab.addEventListener('click', () => activateTab(tab.dataset.tab));
 });
 
-/* --- weekly grid (same logic as wsb.html) --- */
+/* --- weekly grid --- */
 const DAY_TOKENS = ['Mo','Tu','We','Th','Fr','Sa','Su'];
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const HOURS = 24;
@@ -894,16 +1268,15 @@ function applyTimerConfToUI(mode, confStr){
       document.getElementById('durationOff').value = m[2];
     }
   }
-  // Show what's actually stored on the plug right now, regardless of tab.
   setOutput(confStr);
 }
 
 let painting = false, paintValue = true;
-let touchGestureMode = null; // 'paint' | 'scroll' | null while undecided (touch only)
+let touchGestureMode = null;
 let touchStartX = 0, touchStartY = 0, touchLastX = 0, touchLastY = 0;
 let touchHoldTimer = null;
-const TOUCH_HOLD_MS = 160;      // hold this long without moving -> paint mode
-const TOUCH_MOVE_THRESHOLD = 8; // px of early movement that counts as "scrolling"
+const TOUCH_HOLD_MS = 160;
+const TOUCH_MOVE_THRESHOLD = 8;
 const gridScrollEl = document.getElementById('gridScroll');
 
 function setCell(cellEl, value){
@@ -919,8 +1292,6 @@ gridEl.addEventListener('pointerdown', e => {
   paintValue = !cell.classList.contains('active');
 
   if (e.pointerType === 'touch'){
-    // Don't paint immediately - if the finger moves before the hold
-    // delay is up, that's a scroll swipe, not a paint gesture.
     touchGestureMode = null;
     touchStartX = e.clientX; touchStartY = e.clientY; touchLastX = e.clientX; touchLastY = e.clientY;
     clearTimeout(touchHoldTimer);
@@ -944,14 +1315,10 @@ gridEl.addEventListener('pointermove', e => {
       const dx = e.clientX - touchStartX;
       const dy = e.clientY - touchStartY;
       if (Math.abs(dx) < TOUCH_MOVE_THRESHOLD && Math.abs(dy) < TOUCH_MOVE_THRESHOLD) return;
-      // Moved before the hold delay fired - treat as a scroll swipe.
       clearTimeout(touchHoldTimer);
       touchGestureMode = 'scroll';
     }
     if (touchGestureMode === 'scroll'){
-      // touch-action:none stops the browser's own scrolling on the grid,
-      // so replicate both page-scroll (vertical) and the grid's own
-      // horizontal scroll (to reveal Fri-Sun) manually while the finger moves.
       window.scrollBy(0, touchLastY - e.clientY);
       gridScrollEl.scrollLeft -= (e.clientX - touchLastX);
       touchLastX = e.clientX;
@@ -967,7 +1334,6 @@ gridEl.addEventListener('pointermove', e => {
 gridEl.addEventListener('pointerup', e => {
   clearTimeout(touchHoldTimer);
   if (e.pointerType === 'touch' && touchGestureMode === null){
-    // Released before the hold delay and before any real movement - plain tap.
     const cell = e.target.closest('.cell');
     if (cell) setCell(cell, paintValue);
   }
