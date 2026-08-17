@@ -88,14 +88,14 @@
   .signal-badge.bt{ color:#60a5fa; background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); }
 
   .status-grid{
-    display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:12px; margin-top:14px;
+    display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; margin-top:14px;
   }
   .stat{
     background:var(--panel2); border:1px solid var(--border); border-radius:8px;
-    padding:10px 12px;
+    padding:12px 14px; min-height: 64px; display: flex; flex-direction: column; justify-content: center;
   }
   .stat-label{ font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; }
-  .stat-value{ font-size:18px; font-weight:700; margin-top:4px; font-family:var(--mono); }
+  .stat-value{ font-size:18px; font-weight:700; margin-top:6px; font-family:var(--mono); }
 
   .toggle-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
   .toggle-label{ font-size:13px; font-weight:600; }
@@ -199,7 +199,7 @@
     .switch{ width:50px; height:30px; }
     .switch .knob{ width:24px; height:24px; }
     .switch.on .knob{ transform: translateX(20px); }
-    .stat{ padding:8px 10px; }
+    .stat{ padding:10px 12px; }
     .stat-value{ font-size:16px; }
     .tabs{ gap:2px; flex-wrap:wrap; }
     .tab{ font-size:12px; padding:8px 6px; }
@@ -215,8 +215,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.1)</h1>
-  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT — Firefox/Safari block mixed-content ws:// from this https page)</p>
+  <h1>BrAiNPlug — Control (1.6.0)</h1>
+  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT)</p>
 
   <div class="panel">
     <div class="panel-header has-form" id="panelHeader">
