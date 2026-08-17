@@ -216,7 +216,7 @@
 <body>
 <div class="wrap">
   <h1>BrAiNPlug — Control (1.6.0)</h1>
-  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
+  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT)</p>
 
   <div class="panel">
     <div class="panel-header has-form" id="panelHeader">
@@ -225,11 +225,12 @@
         <div class="status-line">
           <span class="dot" id="statusDot"></span>
           <span id="statusText">Not connected</span>
-          <button id="disconnectBtn" disabled>Disconnect</button>
-          <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
-          <span class="signal-badge bt" id="btSignalBadge" style="display:none;">BLE-MODE</span>
         </div>
+        <button id="disconnectBtn" disabled>Disconnect</button>
       </div>
+                <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
+          <span class="signal-badge bt" id="btSignalBadge" style="display:none;">BLE-MODE</span>
+
     </div>
 
     <div id="plugFormContainer">
