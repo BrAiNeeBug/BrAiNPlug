@@ -13,6 +13,7 @@ substitutions:
   current_resistor: "0.001271"
   power_multiply: "1.310"
   localdomain: ".local"
+  mqttbroker: "homeassistant.local"
   ble_pin: !secret nousa8t__ble_pin
 
 packages:

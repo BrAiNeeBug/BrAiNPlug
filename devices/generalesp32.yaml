@@ -15,6 +15,7 @@ substitutions:
   #current_resistor: "0"
   #power_multiply: "0"
   localdomain: ".local"
+  mqttbroker: "homeassistant.local"  
   ble_pin: !secret esp32general__ble_pin
 
 packages:

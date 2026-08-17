@@ -11,6 +11,7 @@ substitutions:
   voltage_divider: "2143"
   current_resistor: "0.001205"
   power_multiply: "1.0"
+  mqttbroker: "homeassistant.local"  
   localdomain: ".local"
 
 packages:
