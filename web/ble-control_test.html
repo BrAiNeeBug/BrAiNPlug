@@ -57,13 +57,11 @@
     font-weight: 600;
   }
 
-  .panel-header-right{
+  .panel-header-left{
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-left: auto;
+    gap: 10px;
     flex-wrap: wrap;
-    justify-content: flex-end;
   }
 
   .hint{ font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; }
@@ -204,7 +202,6 @@
     .subtitle{ font-size:12.5px; }
     .panel{ padding:12px; }
     .panel-header{ flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
-    .panel-header-right{ margin-left: auto; width: auto; justify-content: flex-end; }
     .action-buttons-row{ flex-direction:column; }
     .action-buttons-row button{ width:100%; height:auto; padding:12px 14px; font-size:14px; }
     .switch{ width:50px; height:30px; }
@@ -226,22 +223,22 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.0)</h1>
-  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
+  <h1>BrAiNPlug — Control (1.6.1)</h1>
+  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT — Firefox/Safari block mixed-content ws:// from this https page)</p>
 
   <div class="panel">
     <div class="panel-header has-form" id="panelHeader">
-      <div class="title-group" id="titleGroup">
-        <p class="panel-title">Plugs & Connection</p>
-      </div>
-      <div class="panel-header-right">
-        <div class="status-line">
+      <div class="panel-header-left">
+        <div class="title-group" id="titleGroup">
+          <p class="panel-title">Plugs & Connection</p>
+          <button id="disconnectBtn" style="display:none;">Disconnect</button>
+        </div>
+        <div class="status-line" id="statusLine">
           <span class="dot" id="statusDot"></span>
           <span id="statusText">Not connected</span>
           <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
           <span class="signal-badge bt" id="btSignalBadge" style="display:none;">BLEMODE</span>
         </div>
-        <button id="disconnectBtn" disabled>Disconnect</button>
       </div>
     </div>
 
@@ -295,11 +292,11 @@
 
         <div class="action-buttons-row">
           <button id="addPlugBtn" class="primary">Add & Connect plug</button>
-          <button id="quickConnectBtn" class="primary">Quick Connect*</button>
+          <button id="quickConnectBtn" class="primary">Quick Connect</button>
         </div>
       </div>
 
-      <p class="hint">*Connects without saving.</p>
+      <p class="hint">Quick Connect connects directly using the fields above without saving a new plug.</p>
       <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
     </div>
   </div>
@@ -740,8 +737,6 @@ async function selectPlug(plug){
 }
 
 const disconnectBtn = document.getElementById('disconnectBtn');
-const titleGroup = document.getElementById('titleGroup');
-const panelHeaderRight = document.querySelector('.panel-header-right');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const wifiSignalBadge = document.getElementById('wifiSignalBadge');
@@ -774,6 +769,7 @@ if (!navigator.bluetooth) {
 
 function setConnectedUI(connected){
   statusDot.classList.toggle('connected', connected);
+  disconnectBtn.style.display = connected ? 'inline-block' : 'none';
   disconnectBtn.disabled = !connected;
   relaySwitch.classList.toggle('disabled', !connected);
   childlockSwitch.classList.toggle('disabled', !connected);
@@ -784,11 +780,9 @@ function setConnectedUI(connected){
   if (connected) {
     plugFormContainer.style.display = 'none';
     panelHeader.classList.remove('has-form');
-    titleGroup.appendChild(disconnectBtn);
   } else {
     plugFormContainer.style.display = '';
     panelHeader.classList.add('has-form');
-    panelHeaderRight.appendChild(disconnectBtn);
     statusText.textContent = 'Not connected';
     relaySub.textContent = 'unknown';
     powerValue.textContent = '–';
