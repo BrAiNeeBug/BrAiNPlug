@@ -895,8 +895,28 @@ async function connectBle(overridePin, targetName = ''){
     });
     
     device.addEventListener('gattserverdisconnected', onDisconnected);
-    statusText.textContent = 'Connecting…';
-    gattServer = await device.gatt.connect();
+
+    const GATT_CONNECT_RETRIES = 3;
+    const GATT_CONNECT_RETRY_DELAY_MS = 800;
+    let connectErr;
+    gattServer = null;
+    for (let attempt = 1; attempt <= GATT_CONNECT_RETRIES; attempt++){
+      statusText.textContent = GATT_CONNECT_RETRIES > 1
+        ? `Connecting… (attempt ${attempt}/${GATT_CONNECT_RETRIES})`
+        : 'Connecting…';
+      try {
+        gattServer = await device.gatt.connect();
+        connectErr = null;
+        break;
+      } catch (e) {
+        connectErr = e;
+        console.warn(`GATT connect attempt ${attempt} failed:`, e.message);
+        if (attempt < GATT_CONNECT_RETRIES) {
+          await new Promise(r => setTimeout(r, GATT_CONNECT_RETRY_DELAY_MS));
+        }
+      }
+    }
+    if (!gattServer) throw connectErr;
     const service = await gattServer.getPrimaryService(SERVICE_UUID);
     for (const [key, uuid] of Object.entries(CHAR_UUIDS)){
       chars[key] = await service.getCharacteristic(uuid);
