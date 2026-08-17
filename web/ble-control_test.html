@@ -223,8 +223,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.1)</h1>
-  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT — Firefox/Safari block mixed-content ws:// from this https page)</p>
+  <h1>BrAiNPlug — Control (1.6.0)</h1>
+  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
     <div class="panel-header has-form" id="panelHeader">
@@ -292,11 +292,11 @@
 
         <div class="action-buttons-row">
           <button id="addPlugBtn" class="primary">Add & Connect plug</button>
-          <button id="quickConnectBtn" class="primary">Quick Connect</button>
+          <button id="quickConnectBtn" class="primary">Quick Connect*</button>
         </div>
       </div>
 
-      <p class="hint">Quick Connect connects directly using the fields above without saving a new plug.</p>
+      <p class="hint">*Connects without saving.</p>
       <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
     </div>
   </div>
