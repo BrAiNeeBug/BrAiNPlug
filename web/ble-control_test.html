@@ -38,8 +38,11 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 14px;
+    margin-bottom: 0px;
     flex-wrap: wrap;
+  }
+  .panel-header.has-form{
+    margin-bottom: 14px;
   }
   .panel-title{
     font-size:11px; text-transform:uppercase; letter-spacing:0.08em;
@@ -212,11 +215,11 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.0)</h1>
+  <h1>BrAiNPlug — Control (1.6.1)</h1>
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT — Firefox/Safari block mixed-content ws:// from this https page)</p>
 
   <div class="panel">
-    <div class="panel-header">
+    <div class="panel-header has-form" id="panelHeader">
       <p class="panel-title">Plugs & Connection</p>
       <div class="panel-header-right">
         <div class="status-line">
@@ -229,61 +232,63 @@
       </div>
     </div>
 
-    <div id="plugList"></div>
-    <div class="connection-form">
-      <div class="form-row">
-        <div class="form-field name-field">
-          <label for="plugNameInput">Name / BT Name</label>
-          <input type="text" id="plugNameInput" placeholder="e.g. BrAiNPlug-Kitchen" autocomplete="off">
+    <div id="plugFormContainer">
+      <div id="plugList"></div>
+      <div class="connection-form">
+        <div class="form-row">
+          <div class="form-field name-field">
+            <label for="plugNameInput">Name / BT Name</label>
+            <input type="text" id="plugNameInput" placeholder="e.g. BrAiNPlug-Kitchen" autocomplete="off">
+          </div>
+          <div class="form-field mode-field">
+            <label for="plugModeSelect">Connection</label>
+            <select class="pmode-select" id="plugModeSelect">
+              <option value="ble">Bluetooth</option>
+              <option value="mqtt">MQTT</option>
+            </select>
+          </div>
         </div>
-        <div class="form-field mode-field">
-          <label for="plugModeSelect">Connection</label>
-          <select class="pmode-select" id="plugModeSelect">
-            <option value="ble">Bluetooth</option>
-            <option value="mqtt">MQTT</option>
-          </select>
-        </div>
-      </div>
 
-      <div id="blePlugSettings">
-        <div class="form-field">
-          <label for="plugKeyInput">Bluetooth Key</label>
-          <input type="password" id="plugKeyInput" placeholder="Key (min. 12 chars)" autocomplete="new-password" minlength="12">
+        <div id="blePlugSettings">
+          <div class="form-field">
+            <label for="plugKeyInput">Bluetooth Key</label>
+            <input type="password" id="plugKeyInput" placeholder="Key (min. 12 chars)" autocomplete="new-password" minlength="12">
+          </div>
         </div>
-      </div>
 
-      <div id="mqttPlugSettings" style="display:none;">
-        <div class="form-field full-field" style="margin-bottom: 10px;">
-          <label for="plugPrefixInput">MQTT topic_prefix</label>
-          <input type="text" id="plugPrefixInput" placeholder="e.g. brainplug" autocomplete="off">
-        </div>
-        <div class="broker-settings">
-          <div class="panel-title" style="margin-bottom:10px;">MQTT Broker Settings</div>
-          <div class="form-row">
-            <div class="form-field full-field">
-              <label for="brokerUrlInput">Broker URL</label>
-              <input type="text" id="brokerUrlInput" placeholder="ws://homeassistant.bk-net:9001" autocomplete="url">
-            </div>
-            <div class="form-field">
-              <label for="brokerUserInput">Username</label>
-              <input type="text" id="brokerUserInput" placeholder="optional" autocomplete="username">
-            </div>
-            <div class="form-field">
-              <label for="brokerPasswordInput">Password</label>
-              <input type="password" id="brokerPasswordInput" placeholder="optional" autocomplete="current-password">
+        <div id="mqttPlugSettings" style="display:none;">
+          <div class="form-field full-field" style="margin-bottom: 10px;">
+            <label for="plugPrefixInput">MQTT topic_prefix</label>
+            <input type="text" id="plugPrefixInput" placeholder="e.g. brainplug" autocomplete="off">
+          </div>
+          <div class="broker-settings">
+            <div class="panel-title" style="margin-bottom:10px;">MQTT Broker Settings</div>
+            <div class="form-row">
+              <div class="form-field full-field">
+                <label for="brokerUrlInput">Broker URL</label>
+                <input type="text" id="brokerUrlInput" placeholder="ws://homeassistant.bk-net:9001" autocomplete="url">
+              </div>
+              <div class="form-field">
+                <label for="brokerUserInput">Username</label>
+                <input type="text" id="brokerUserInput" placeholder="optional" autocomplete="username">
+              </div>
+              <div class="form-field">
+                <label for="brokerPasswordInput">Password</label>
+                <input type="password" id="brokerPasswordInput" placeholder="optional" autocomplete="current-password">
+              </div>
             </div>
           </div>
         </div>
+
+        <div class="action-buttons-row">
+          <button id="addPlugBtn" class="primary">Add & Connect plug</button>
+          <button id="quickConnectBtn" class="primary">Quick Connect</button>
+        </div>
       </div>
 
-      <div class="action-buttons-row">
-        <button id="addPlugBtn" class="primary">Add & Connect plug</button>
-        <button id="quickConnectBtn" class="primary">Quick Connect</button>
-      </div>
+      <p class="hint">Quick Connect connects directly using the fields above without saving a new plug.</p>
+      <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
     </div>
-
-    <p class="hint">Quick Connect connects directly using the fields above without saving a new plug.</p>
-    <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
   </div>
 
   <div class="panel">
@@ -556,7 +561,6 @@ document.getElementById('addPlugBtn').addEventListener('click', async () => {
   plugKeyInput.value = '';
   renderPlugList();
 
-  // Verbindet direkt automatisch nach dem Hinzufügen
   await selectPlug(newPlug);
 });
 
@@ -590,6 +594,9 @@ document.getElementById('quickConnectBtn').addEventListener('click', async () =>
     setConnectedUI(true);
   } catch (err) {
     statusText.textContent = 'MQTT connect failed: ' + err.message;
+    activePlugId = null;
+    renderPlugList();
+    setConnectedUI(false);
   }
 });
 
@@ -616,13 +623,13 @@ function mqttConnect(brokerUrl, prefix, auth = {}){
   return new Promise((resolve, reject) => {
     mqttPrefix = prefix;
     let settled = false;
-    const client = mqtt.connect(brokerUrl, { connectTimeout: 8000, reconnectPeriod: 2000, username: auth.username || undefined, password: auth.password || undefined });
+    const client = mqtt.connect(brokerUrl, { connectTimeout: 10000, reconnectPeriod: 2000, username: auth.username || undefined, password: auth.password || undefined });
     const failTimer = setTimeout(() => {
       if (settled) return;
       settled = true;
       client.end(true);
       reject(new Error('timeout'));
-    }, 9000);
+    }, 11000);
     client.on('connect', () => {
       if (settled) return;
       const subs = Object.keys(MQTT_OBJECT_IDS).map(k => mqttTopic(k, 'state'));
@@ -713,7 +720,9 @@ async function selectPlug(plug){
     setConnectedUI(true);
   } catch (err) {
     statusText.textContent = 'MQTT connect failed: ' + err.message;
-    activePlugId = null; renderPlugList();
+    activePlugId = null;
+    renderPlugList();
+    setConnectedUI(false);
   }
 }
 
@@ -741,6 +750,8 @@ const timerSummaryText = document.getElementById('timerSummaryText');
 const timerOffBtns = document.querySelectorAll('.timer-off-link');
 const writeStatus = document.getElementById('writeStatus');
 const setBtns = ['setWeeklyBtn','setWeeklySingleBtn','setDailyBtn','setDailySingleBtn','setDurationBtn'].map(id => document.getElementById(id));
+const plugFormContainer = document.getElementById('plugFormContainer');
+const panelHeader = document.getElementById('panelHeader');
 
 if (!navigator.bluetooth) {
   document.getElementById('unsupportedHint').style.display = 'block';
@@ -754,7 +765,13 @@ function setConnectedUI(connected){
   powerModeSelect.disabled = !connected;
   setBtns.forEach(b => b.disabled = !connected);
   timerOffBtns.forEach(b => b.disabled = !connected);
-  if (!connected){
+
+  if (connected) {
+    plugFormContainer.style.display = 'none';
+    panelHeader.classList.remove('has-form');
+  } else {
+    plugFormContainer.style.display = '';
+    panelHeader.classList.add('has-form');
     statusText.textContent = 'Not connected';
     relaySub.textContent = 'unknown';
     powerValue.textContent = '–';
@@ -810,7 +827,7 @@ function showWriteStatus(msg, ok){
 }
 
 let writeChain = Promise.resolve();
-const WRITE_TIMEOUT_MS = 4000;
+const WRITE_TIMEOUT_MS = 5000;
 const WRITE_MAX_RETRIES = 2;
 
 function withTimeout(promise, ms){
@@ -847,10 +864,12 @@ async function connectBle(overridePin, targetName = ''){
   const pin = overridePin || plugKeyInput.value.trim();
   if (!pin){
     statusText.textContent = 'Enter the Key first.';
+    activePlugId = null; renderPlugList(); setConnectedUI(false);
     return;
   }
   if (pin.length < MIN_KEY_LEN){
     statusText.textContent = `Key too short (min. ${MIN_KEY_LEN} chars).`;
+    activePlugId = null; renderPlugList(); setConnectedUI(false);
     return;
   }
   try {
@@ -885,12 +904,14 @@ async function connectBle(overridePin, targetName = ''){
       authValue = await authPromise;
     } catch (e) {
       statusText.textContent = 'Auth timeout — plug still in backoff from recent wrong attempts, try again later.';
-      device.gatt.disconnect();
+      if (device && device.gatt) device.gatt.disconnect();
+      activePlugId = null; renderPlugList(); setConnectedUI(false);
       return;
     }
     if (authValue !== 1){
       statusText.textContent = 'Wrong PIN — rejected by the plug.';
-      device.gatt.disconnect();
+      if (device && device.gatt) device.gatt.disconnect();
+      activePlugId = null; renderPlugList(); setConnectedUI(false);
       return;
     }
     await subscribeAll();
@@ -903,6 +924,9 @@ async function connectBle(overridePin, targetName = ''){
   } catch (err) {
     statusText.textContent = 'Connection failed: ' + err.message;
     statusDot.classList.add('err');
+    activePlugId = null;
+    renderPlugList();
+    setConnectedUI(false);
     setTimeout(() => statusDot.classList.remove('err'), 2500);
   }
 }
@@ -912,6 +936,8 @@ function onDisconnected(){
   chars = {};
   writeChain = Promise.resolve();
   if (activeTransport && activeTransport.kind === 'ble') activeTransport = null;
+  activePlugId = null;
+  renderPlugList();
   setConnectedUI(false);
 }
 
@@ -920,7 +946,8 @@ async function disconnect(){
   if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
   if (mqttClient){ try { mqttClient.end(true); } catch (err) { /* ignore */ } mqttClient = null; }
   activeTransport = null;
-  activePlugId = null; renderPlugList();
+  activePlugId = null; 
+  renderPlugList();
   setConnectedUI(false);
 }
 
