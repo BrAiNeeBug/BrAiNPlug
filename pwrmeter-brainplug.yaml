@@ -30,19 +30,19 @@ sensor:
     current_resistor: ${current_resistor}
     voltage:
       id: voltage_sensor
-      name: Voltage(V)
+      name: "Voltage"
       web_server:
         sorting_weight: 2
       icon: "mdi:sine-wave"
     current:
       id: current_sensor
-      name: Current(A)
+      name: "Current"
       web_server:
         sorting_weight: 3
       icon: "mdi:current-ac"
     power:
       id: power_sensor
-      name: Power(W)
+      name: "Power"
       filters:
         - multiply: ${power_multiply}
       web_server:
