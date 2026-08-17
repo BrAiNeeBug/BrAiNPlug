@@ -44,15 +44,13 @@
   .panel-header.has-form{
     margin-bottom: 14px;
   }
-  .panel-title{
-    font-size:11px; text-transform:uppercase; letter-spacing:0.08em;
-    color:var(--muted); margin:0; font-weight:600;
-  }
   .panel-header-right{
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     margin-left: auto;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .hint{ font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; }
@@ -82,7 +80,7 @@
 
   .signal-badge{
     font-family:var(--mono); font-size:11px; font-weight:600;
-    padding:2px 8px; border-radius:20px;
+    padding:2px 8px; border-radius:20px; white-space:nowrap;
   }
   .signal-badge.wifi{ color:var(--ok); background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); }
   .signal-badge.bt{ color:#60a5fa; background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); }
@@ -215,8 +213,8 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.0)</h1>
-  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT)</p>
+  <h1>BrAiNPlug — Control (1.6.1)</h1>
+  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT — Firefox/Safari block mixed-content ws:// from this https page)</p>
 
   <div class="panel">
     <div class="panel-header has-form" id="panelHeader">
@@ -226,7 +224,7 @@
           <span class="dot" id="statusDot"></span>
           <span id="statusText">Not connected</span>
           <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
-          <span class="signal-badge bt" id="btSignalBadge" style="display:none;">BT –0 dBm</span>
+          <span class="signal-badge bt" id="btSignalBadge" style="display:none;">BLEMODE</span>
         </div>
         <button id="disconnectBtn" disabled>Disconnect</button>
       </div>
