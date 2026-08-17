@@ -335,7 +335,7 @@
       </div>
       <div class="stat">
         <div class="stat-label">Voltage</div>
-        <div class="stat-value" id="voltage_sensor">–</div>
+        <div class="stat-value" id="Voltage">–</div>
       </div>
       <div class="stat">
         <div class="stat-label">Current</div>
@@ -448,7 +448,7 @@ const MQTT_DOMAINS = {
 const MQTT_OBJECT_IDS = {
   relay: 'switch', childlock: 'childlock',
   powermode: 'poweronmode', timermode: 'timermode', timerconf: 'timerconf',
-  power: 'powerw', voltage: 'voltagev', current: 'currenta', energy: 'totalenergy',
+  power: 'power', voltage: 'voltage', current: 'current', energy: 'totalenergy',
   actualduration: 'actualduration', wifisignal: 'wifisignal', timerstatus: 'timerstatus',
 };
 
@@ -747,7 +747,7 @@ const relaySub = document.getElementById('relaySub');
 const childlockSwitch = document.getElementById('childlockSwitch');
 const powerModeSelect = document.getElementById('powerModeSelect');
 const powerValue = document.getElementById('powerValue');
-const voltage_sensor = document.getElementById('voltage_sensor');
+const voltageValue = document.getElementById('voltageValue');
 const currentValue = document.getElementById('currentValue');
 const energyValue = document.getElementById('energyValue');
 const timerModeValue = document.getElementById('timerModeValue');
@@ -786,7 +786,7 @@ function setConnectedUI(connected){
     statusText.textContent = 'Not connected';
     relaySub.textContent = 'unknown';
     powerValue.textContent = '–';
-    voltage_sensor.textContent = '–';
+    voltageValue.textContent = '–';
     currentValue.textContent = '–';
     energyValue.textContent = '–';
     timerModeValue.textContent = '–';
@@ -1087,7 +1087,7 @@ function updatePower(v){
   powerValue.textContent = (Math.round(v * 10) / 10) + ' W';
 }
 function updateVoltage(v){
-  voltage_sensor.textContent = (Math.round(v * 10) / 10) + ' V';
+  voltageValue.textContent = (Math.round(v * 10) / 10) + ' V';
 }
 function updateCurrent(v){
   currentValue.textContent = (Math.round(v * 1000) / 1000) + ' A';
