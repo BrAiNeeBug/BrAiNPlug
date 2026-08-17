@@ -335,7 +335,7 @@
       </div>
       <div class="stat">
         <div class="stat-label">Voltage</div>
-        <div class="stat-value" id="voltageValue">–</div>
+        <div class="stat-value" id="voltage_sensor">–</div>
       </div>
       <div class="stat">
         <div class="stat-label">Current</div>
@@ -747,7 +747,7 @@ const relaySub = document.getElementById('relaySub');
 const childlockSwitch = document.getElementById('childlockSwitch');
 const powerModeSelect = document.getElementById('powerModeSelect');
 const powerValue = document.getElementById('powerValue');
-const voltageValue = document.getElementById('voltageValue');
+const voltage_sensor = document.getElementById('voltage_sensor');
 const currentValue = document.getElementById('currentValue');
 const energyValue = document.getElementById('energyValue');
 const timerModeValue = document.getElementById('timerModeValue');
@@ -786,7 +786,7 @@ function setConnectedUI(connected){
     statusText.textContent = 'Not connected';
     relaySub.textContent = 'unknown';
     powerValue.textContent = '–';
-    voltageValue.textContent = '–';
+    voltage_sensor.textContent = '–';
     currentValue.textContent = '–';
     energyValue.textContent = '–';
     timerModeValue.textContent = '–';
@@ -1087,7 +1087,7 @@ function updatePower(v){
   powerValue.textContent = (Math.round(v * 10) / 10) + ' W';
 }
 function updateVoltage(v){
-  voltageValue.textContent = (Math.round(v * 10) / 10) + ' V';
+  voltage_sensor.textContent = (Math.round(v * 10) / 10) + ' V';
 }
 function updateCurrent(v){
   currentValue.textContent = (Math.round(v * 1000) / 1000) + ' A';
