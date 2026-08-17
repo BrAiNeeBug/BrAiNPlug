@@ -44,6 +44,19 @@
   .panel-header.has-form{
     margin-bottom: 14px;
   }
+
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .panel-title {
+    margin: 0;
+    font-weight: 600;
+  }
+
   .panel-header-right{
     display: flex;
     align-items: center;
@@ -190,8 +203,8 @@
     h1{ font-size:17px; }
     .subtitle{ font-size:12.5px; }
     .panel{ padding:12px; }
-    .panel-header{ flex-direction: column; align-items: flex-start; gap: 8px; }
-    .panel-header-right{ margin-left: 0; width: 100%; justify-content: space-between; }
+    .panel-header{ flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+    .panel-header-right{ margin-left: auto; width: auto; justify-content: flex-end; }
     .action-buttons-row{ flex-direction:column; }
     .action-buttons-row button{ width:100%; height:auto; padding:12px 14px; font-size:14px; }
     .switch{ width:50px; height:30px; }
@@ -213,12 +226,14 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.1)</h1>
-  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT (Chromium-based browsers only for MQTT — Firefox/Safari block mixed-content ws:// from this https page)</p>
+  <h1>BrAiNPlug — Control (1.6.0)</h1>
+  <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
     <div class="panel-header has-form" id="panelHeader">
-      <p class="panel-title">Plugs & Connection</p>
+      <div class="title-group" id="titleGroup">
+        <p class="panel-title">Plugs & Connection</p>
+      </div>
       <div class="panel-header-right">
         <div class="status-line">
           <span class="dot" id="statusDot"></span>
@@ -280,11 +295,11 @@
 
         <div class="action-buttons-row">
           <button id="addPlugBtn" class="primary">Add & Connect plug</button>
-          <button id="quickConnectBtn" class="primary">Quick Connect</button>
+          <button id="quickConnectBtn" class="primary">Quick Connect*</button>
         </div>
       </div>
 
-      <p class="hint">Quick Connect connects directly using the fields above without saving a new plug.</p>
+      <p class="hint">*Connects without saving.</p>
       <p class="hint" id="unsupportedHint" style="display:none; color:var(--err);">This browser doesn't support Web Bluetooth. Use Chrome or Edge on desktop, or Chrome on Android.</p>
     </div>
   </div>
@@ -725,6 +740,8 @@ async function selectPlug(plug){
 }
 
 const disconnectBtn = document.getElementById('disconnectBtn');
+const titleGroup = document.getElementById('titleGroup');
+const panelHeaderRight = document.querySelector('.panel-header-right');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const wifiSignalBadge = document.getElementById('wifiSignalBadge');
@@ -767,9 +784,11 @@ function setConnectedUI(connected){
   if (connected) {
     plugFormContainer.style.display = 'none';
     panelHeader.classList.remove('has-form');
+    titleGroup.appendChild(disconnectBtn);
   } else {
     plugFormContainer.style.display = '';
     panelHeader.classList.add('has-form');
+    panelHeaderRight.appendChild(disconnectBtn);
     statusText.textContent = 'Not connected';
     relaySub.textContent = 'unknown';
     powerValue.textContent = '–';
