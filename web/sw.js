@@ -1,8 +1,8 @@
 // Minimal service worker - just enough for Chrome/Android to consider the
 // page installable. No offline BLE functionality is possible (or needed),
 // this only caches the static shell so the app opens instantly.
-const CACHE = 'brainplug-shell-v1';
-const SHELL = ['./ble-control.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'brainplug-control';
+const SHELL = ['./bpc.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
