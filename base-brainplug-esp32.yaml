@@ -2,14 +2,16 @@
 substitutions:
   device_name: brainplug
   friendly_name: "base32_brainplug"
-  schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/web/wsb.html"
+  bp_control_url: "https://braineebug.github.io/BrAiNPlug/web/bpc.html"
   localdomain: ".local"
   mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.4.3_ESP32
+  comment: BrAiN_Plug_1.6.0_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
+  includes:
+    - brainplug_components/ble_auth.h
   on_boot:
     priority: -100
     then:
@@ -25,6 +27,13 @@ esphome:
               if (id(relay_physical).state) id(relay_physical).turn_off();
             }
           }
+      - if:
+          condition:
+            lambda: 'return id(bluetooth_enable).state;'
+          then:
+            - ble.enable:
+            - lambda: 'id(ble_ever_enabled) = true;'
+      - lambda: 'id(booted_flag) = true;'
 
 preferences:
   flash_write_interval: 30s
@@ -56,6 +65,48 @@ globals:
     type: std::string
     restore_value: false
     initial_value: '""'
+  - id: ble_authed
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: ble_nonce
+    type: std::vector<uint8_t>
+    restore_value: false
+  - id: ble_auth_failures
+    type: uint8_t
+    restore_value: false
+    initial_value: "0"
+  - id: booted_flag
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: ble_ever_enabled
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: ble_auth_busy
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: ble_auth_ok
+    type: bool
+    restore_value: false
+    initial_value: "false"
+  - id: ble_auth_delay_ms
+    type: uint32_t
+    restore_value: false
+    initial_value: "0"
+  - id: time_synced
+    type: bool
+    restore_value: false
+    initial_value: "false"
+
+mqtt:
+  broker: ${mqttbroker}
+  id: mqtt_client
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  topic_prefix: ${device_name}
 
 ota:
   - platform: esphome
@@ -72,13 +123,6 @@ wifi:
   reboot_timeout: 0s
   power_save_mode: LIGHT
   domain: ${localdomain}
-
-mqtt:
-  broker: ${mqttbroker}
-  id: mqtt_client
-  username: !secret mqtt_username
-  password: !secret mqtt_password
-  topic_prefix: ${device_name}
 
 debug:
 
@@ -116,7 +160,7 @@ select:
     icon: "mdi:cog-clockwise"
     entity_category: config
     web_server:
-      sorting_weight: 2
+      sorting_weight: 3
   - platform: template
     name: "TimerMode"
     id: timer_mode_select
@@ -139,16 +183,18 @@ select:
             else if (x == "Weekly") id(timer_mode) = 3;
             else if (x == "WeeklySingle") id(timer_mode) = 4;
             else if (x == "Duration") id(timer_mode) = 5;
+        - ble_server.characteristic.notify:
+            id: ble_timermode_char
     icon: "mdi:timer-cog"
     entity_category: config
     web_server:
-      sorting_weight: 3
+      sorting_weight: 4
 text:
   - platform: template
     name: "TimerConf"
     id: timer_conf_text
     #   Daily / DailySingle             -> "HH:MM:SS-HH:MM:SS"        z.B. "12:00:00-22:00:00"
-    #   Weekly / WeeklySingle -> "HHMM-HHMM:Days;..."       (Format vom Schedule-Builder, siehe ScheduleBuilderURL)
+    #   Weekly / WeeklySingle -> "HHMM-HHMM:Days;..."       (Format vom Schedule-Builder, siehe bp_control_url)
     #   Duration                  -> "HH:MM:SS/HH:MM:SS" (ON/OFF) z.B. "00:00:10/00:00:05"
     mode: text
     optimistic: true
@@ -157,8 +203,12 @@ text:
     max_length: 255
     icon: "mdi:calendar-clock"
     entity_category: config
+    on_value:
+      then:
+        - ble_server.characteristic.notify:
+            id: ble_timerconf_char
     web_server:
-      sorting_weight: 4
+      sorting_weight: 5
 web_server:
   port: 80
   version: 3
@@ -167,15 +217,273 @@ web_server:
     username: admin
     type: digest
 
+# --- BLE control (Web Bluetooth) ---
+# Custom GATT service so the plug can be controlled straight from a browser
+# (navigator.bluetooth) without a dedicated app, alongside the existing WiFi API/HA.
+# NOTE: the "power", "voltage", "current" and "energy" characteristics assume this file
+# is packaged together with pwrmeter-brainplug.yaml (ids: power_sensor, voltage_sensor,
+# current_sensor, total_energy_display) as it is for the Nous A8T - if a given ESP32
+# device doesn't include that package, remove those four characteristic blocks.
+esp32_ble:
+  enable_on_boot: false  # BLE stack stays off until the "Bluetooth" switch enables it
+esp32_ble_server:
+  manufacturer:
+    data: n/a
+  model:
+    data: n/a
+  firmware_version:
+    data: n/a
+  on_connect:
+    - lambda: |-
+        id(ble_authed) = false;
+        id(ble_nonce) = ble_random_nonce(16);
+  on_disconnect:
+    - lambda: |-
+        id(ble_authed) = false;
+  services:
+    - uuid: a36c6568-2877-466d-ad19-bdbf301199a8
+      advertise: true
+      characteristics:
+        - id: ble_nonce_char
+          uuid: 61dd1e94-be40-4e87-a958-471fbe096b3e
+          read: true
+          notify: true
+          value:
+            data: !lambda 'return id(ble_nonce);'
+        - id: ble_auth_char
+          uuid: bff96ad9-2846-45e8-9912-3916a6ddf141
+          read: true
+          notify: true
+          value:
+            data: !lambda 'return std::vector<uint8_t>{ (uint8_t) (id(ble_authed) ? 1 : 0) };'
+        - id: ble_response_char
+          uuid: 8f439555-8033-41ef-af6d-c340b4c9a7de
+          write: true
+          on_write:
+            then:
+              - if:
+                  condition:
+                    lambda: 'return !id(ble_auth_busy);'
+                  then:
+                    - lambda: 'id(ble_auth_busy) = true;'
+                    - lambda: |-
+                        std::vector<uint8_t> response(x.begin(), x.end());
+                        id(ble_auth_ok) = ble_hmac_verify("${ble_pin}", id(ble_nonce), response);
+
+                        // Backoff wird IMMER aus dem aktuellen Fail-Stand berechnet -
+                        // egal ob dieser Versuch richtig war. So verrät die
+                        // Antwortzeit nichts über das Ergebnis.
+                        uint8_t projected = id(ble_auth_failures);
+                        if (!id(ble_auth_ok) && projected < 10) projected++;
+
+                        if (projected == 0) id(ble_auth_delay_ms) = 150;
+                        else if (projected >= 6) id(ble_auth_delay_ms) = 60000;
+                        else id(ble_auth_delay_ms) = 2000UL << (projected - 1);
+
+                        id(ble_auth_failures) = projected; // vorläufig, wird bei Erfolg unten resettet
+
+                    - delay: !lambda 'return id(ble_auth_delay_ms);'
+
+                    - lambda: |-
+                        // Erst JETZT, nach dem einheitlichen Delay, wird der
+                        // tatsächliche Zustand sichtbar/lesbar geändert.
+                        if (id(ble_auth_ok)) {
+                          id(ble_authed) = true;
+                          id(ble_auth_failures) = 0;
+                          ESP_LOGI("ble_auth", "Client authenticated");
+                        } else {
+                          id(ble_authed) = false;
+                          ESP_LOGW("ble_auth", "BLE auth failed (%u. Fehlversuch)",
+                                   (unsigned)id(ble_auth_failures));
+                        }
+                        id(ble_nonce) = ble_random_nonce(16);
+
+                    - ble_server.characteristic.notify:
+                        id: ble_auth_char
+                    - ble_server.characteristic.notify:
+                        id: ble_nonce_char
+                    - lambda: 'id(ble_auth_busy) = false;'
+        - id: ble_relay_char
+          uuid: b2fbcf01-888c-4dbd-a0ca-9c59855115a6
+          read: true
+          write: true
+          notify: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{0xFF};
+              return std::vector<uint8_t>{ (uint8_t) (id(relay).state ? 1 : 0) };
+          on_write:
+            then:
+              - if:
+                  condition:
+                    lambda: 'return id(ble_authed);'
+                  then:
+                    - if:
+                        condition:
+                          lambda: 'return x.size() > 0 && x[0] == 1;'
+                        then:
+                          - switch.turn_on: relay
+                        else:
+                          - switch.turn_off: relay
+                  else:
+                    - lambda: 'ESP_LOGW("ble_auth", "Relay write rejected - not authenticated");'
+        - id: ble_childlock_char
+          uuid: 9745e8b8-7ffb-44f8-adfa-e986ee933a8f
+          read: true
+          write: true
+          notify: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{0xFF};
+              return std::vector<uint8_t>{ (uint8_t) (id(child_lock).state ? 1 : 0) };
+          on_write:
+            then:
+              - if:
+                  condition:
+                    lambda: 'return id(ble_authed);'
+                  then:
+                    - if:
+                        condition:
+                          lambda: 'return x.size() > 0 && x[0] == 1;'
+                        then:
+                          - switch.turn_on: child_lock
+                        else:
+                          - switch.turn_off: child_lock
+                  else:
+                    - lambda: 'ESP_LOGW("ble_auth", "ChildLock write rejected - not authenticated");'
+        - id: ble_powermode_char
+          uuid: 5a2c9438-6e1b-4f83-9a02-7dfb1c5e8a3c
+          read: true
+          write: true
+          notify: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              std::string s = id(power_mode_select).current_option();
+              return std::vector<uint8_t>(s.begin(), s.end());
+          on_write:
+            then:
+              - if:
+                  condition:
+                    lambda: 'return id(ble_authed);'
+                  then:
+                    - select.set:
+                        id: power_mode_select
+                        option: !lambda 'return std::string(x.begin(), x.end());'
+                  else:
+                    - lambda: 'ESP_LOGW("ble_auth", "PowerONMode write rejected - not authenticated");'
+        - id: ble_timermode_char
+          uuid: 1bb6e309-c3df-4fd7-88d8-96039201b1db
+          read: true
+          write: true
+          notify: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              std::string s = id(timer_mode_select).current_option();
+              return std::vector<uint8_t>(s.begin(), s.end());
+          on_write:
+            then:
+              - if:
+                  condition:
+                    lambda: 'return id(ble_authed);'
+                  then:
+                    - select.set:
+                        id: timer_mode_select
+                        option: !lambda 'return std::string(x.begin(), x.end());'
+                  else:
+                    - lambda: 'ESP_LOGW("ble_auth", "TimerMode write rejected - not authenticated");'
+        - id: ble_timerconf_char
+          uuid: 2bc4d2fc-4a0e-4d00-8bf3-1a25656eb587
+          read: true
+          write: true
+          notify: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              std::string s = id(timer_conf_text).state;
+              return std::vector<uint8_t>(s.begin(), s.end());
+          on_write:
+            then:
+              - if:
+                  condition:
+                    lambda: 'return id(ble_authed);'
+                  then:
+                    - text.set:
+                        id: timer_conf_text
+                        value: !lambda 'return std::string(x.begin(), x.end());'
+                  else:
+                    - lambda: 'ESP_LOGW("ble_auth", "TimerConf write rejected - not authenticated");'
+        - id: ble_power_char
+          uuid: 18074a57-a3ba-49a6-a958-d49525bb9434
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(power_sensor).state).get_data();
+        - id: ble_voltage_char
+          uuid: eef5b493-e0b5-4257-b79f-5945b52fc4b4
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(voltage_sensor).state).get_data();
+        - id: ble_current_char
+          uuid: e512c5a0-e726-478f-94ae-e19218f60118
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(current_sensor).state).get_data();
+        - id: ble_energy_char
+          uuid: d3134b34-4635-4d72-9e50-49053be2bc19
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(total_energy_display).state).get_data();
+        - id: ble_actualduration_char
+          uuid: f848732a-d062-457c-aa8e-66c1b5e5fa2e
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              std::string s = id(relay_duration_display).state;
+              return std::vector<uint8_t>(s.begin(), s.end());
+        - id: ble_wifisignal_char
+          uuid: 8e0f6a15-2b9d-4a1e-9c3f-7d5b0e2a4f6c
+          read: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              return bytebuffer::ByteBuffer::wrap(id(wifi_signal_rssi).state).get_data();
+        - id: ble_timerstatus_char
+          uuid: 4195b034-6b66-4b12-82d2-5a8e28d4984f
+          read: true
+          notify: true
+          value:
+            data: !lambda |-
+              if (!id(ble_authed)) return std::vector<uint8_t>{};
+              std::string s;
+              if (id(timer_mode) == 0) {
+                s = "OFF";
+              } else if (!id(time_synced)) {
+                s = "No time sync";
+              } else {
+                s = "Active";
+              }
+              return std::vector<uint8_t>(s.begin(), s.end());
+
 time:
   - platform: sntp
     id: timesrc
 
 interval:
-  - interval: 10s
+  - interval: 5s
     then:
       - lambda: |
           auto now = id(timesrc).now();
+          id(time_synced) = now.is_valid();
           if (!now.is_valid()) return;
 
           if (id(timer_mode) == 0) {
@@ -292,8 +600,10 @@ interval:
                      matched_today, id(relay_physical).state ? "ON" : "OFF");
             id(weekly_status_str) = std::string(status_buf);
           }
+      - ble_server.characteristic.notify:
+          id: ble_timerstatus_char
 
-  - interval: 1s
+  - interval: 5s
     then:
       - lambda: |-
           if (id(timer_mode) != 5) return;
@@ -341,16 +651,17 @@ text_sensor:
                 id(last_switch_time) = 0;
               }
   - platform: template
-    name: "ScheduleBuilderURL"
+    name: "BP-Control"
     id: wsb
     icon: "mdi:web"
     entity_category: diagnostic
     lambda: |-
-      return {"${schedule_builder_url}"};
+      return {"${bp_control_url}"};
     disabled_by_default: true
   - platform: template
     name: "SystemClock"
     id: current_time_display
+    update_interval: 5s
     icon: "mdi:clock-outline"
     lambda: |-
       auto now = id(timesrc).now();
@@ -364,6 +675,7 @@ text_sensor:
     name: "ActualDuration"
     id: relay_duration_display
     state_topic: "${device_name}/text_sensor/actualduration/state" #needed for mqtt idk..
+    update_interval: 5min
     lambda: |-
       auto now = id(timesrc).now();
       if (!now.is_valid()) return {"NA"};
@@ -383,6 +695,16 @@ text_sensor:
     icon: "mdi:run"
     web_server:
       sorting_weight: 6
+  - platform: template
+    name: "TimerStatus"
+    id: timer_status_display
+    icon: "mdi:timer-alert-outline"
+    entity_category: diagnostic
+    update_interval: 5s
+    lambda: |-
+      if (id(timer_mode) == 0) return std::string("OFF");
+      if (!id(time_synced)) return std::string("No time sync");
+      return std::string("Active");
   - platform: template
     name: "WeeklyStatus"
     id: weekly_status_display
@@ -470,7 +792,7 @@ sensor:
   - platform: wifi_signal
     name: "WiFiSignal"
     id: wifi_signal_rssi
-    update_interval: 30s
+    update_interval: 15s
     entity_category: diagnostic
     icon: "mdi:wifi-strength-2"
     disabled_by_default: true
@@ -504,8 +826,10 @@ switch:
           if (now.is_valid()) {
             id(last_switch_time) = (int) now.timestamp;
           }
-          global_preferences->sync();
           id(relay).publish_state(true);
+      - ble_server.characteristic.notify:
+          id: ble_relay_char
+      - component.update: relay_duration_display
     on_turn_off:
       - lambda: |-
           id(relay_state) = 0;
@@ -513,8 +837,10 @@ switch:
           if (now.is_valid()) {
             id(last_switch_time) = (int) now.timestamp;
           }
-          global_preferences->sync();
           id(relay).publish_state(false);
+      - ble_server.characteristic.notify:
+          id: ble_relay_char
+      - component.update: relay_duration_display
   - platform: template
     name: "Switch"
     id: relay
@@ -538,6 +864,33 @@ switch:
           }
     web_server:
       sorting_weight: 1
+    device_class: outlet
+  - platform: template
+    name: "Bluetooth"
+    id: bluetooth_enable
+    icon: "mdi:bluetooth"
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - if:
+          condition:
+            lambda: 'return id(booted_flag);'
+          then:
+            - if:
+                condition:
+                  lambda: 'return id(ble_ever_enabled);'
+                then:
+                  - lambda: |-
+                      global_preferences->sync();
+                      App.safe_reboot();
+                else:
+                  - lambda: 'id(ble_ever_enabled) = true;'
+                  - ble.enable:
+    on_turn_off:
+      - ble.disable:
+    web_server:
+      sorting_weight: 1
   - platform: template
     name: "ChildLock"
     id: child_lock
@@ -545,8 +898,14 @@ switch:
     entity_category: config
     optimistic: true
     restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - ble_server.characteristic.notify:
+          id: ble_childlock_char
+    on_turn_off:
+      - ble_server.characteristic.notify:
+          id: ble_childlock_char
     web_server:
-      sorting_weight: 1
+      sorting_weight: 2
 binary_sensor:
   - platform: gpio
     pin:

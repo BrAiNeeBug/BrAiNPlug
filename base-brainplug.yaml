@@ -2,13 +2,13 @@
 substitutions:
   device_name: brainplug
   friendly_name: "base_brainplug"
-  schedule_builder_url: "https://braineebug.github.io/BrAiNPlug/web/wsb.html"
+  bp_control_url: "https://braineebug.github.io/BrAiNPlug/web/bpc.html"
   board_type: esp8266
   localdomain: ".local"
   mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.4.3
+  comment: BrAiN_Plug_1.6.0
   name: ${device_name}
   friendly_name: ${friendly_name}
   on_boot:
@@ -156,7 +156,7 @@ text:
     name: "TimerConf"
     id: timer_conf_text
     #   Daily / DailySingle             -> "HH:MM:SS-HH:MM:SS"        z.B. "12:00:00-22:00:00"
-    #   Weekly / WeeklySingle -> "HHMM-HHMM:Days;..."       (Format vom Schedule-Builder, siehe ScheduleBuilderURL)
+    #   Weekly / WeeklySingle -> "HHMM-HHMM:Days;..."       (Format vom Schedule-Builder, siehe bp_control_url)
     #   Duration                  -> "HH:MM:SS/HH:MM:SS" (ON/OFF) z.B. "00:00:10/00:00:05"
     mode: text
     optimistic: true
@@ -337,12 +337,12 @@ interval:
 
 text_sensor:
   - platform: template
-    name: "ScheduleBuilderURL"
+    name: "BP-Control"
     id: wsb
     icon: "mdi:web"
     entity_category: diagnostic
     lambda: |-
-      return {"${schedule_builder_url}"};
+      return {"${bp_control_url}"};
     disabled_by_default: true
   - platform: template
     name: "SystemClock"
