@@ -1,4 +1,4 @@
-# BrAiNPlug (Beta-Status, use with care!)
+# BrAiNPlug 1.6.0 (Beta-Status, use with care!)
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-compatible-blue.svg)](https://esphome.io)
 [![Platform](https://img.shields.io/badge/platform-ESP8266%20%2F%20ESP32-orange.svg)](https://www.espressif.com/)
@@ -8,10 +8,10 @@ ESPHome based smart plug firmware for **ESP8266 / ESP8285 and ESP32**.
 
 BrAiNPlug adds advanced timer handling, power recovery behavior, persistent runtime tracking and optional power monitoring to compatible smart plugs.
 
-The firmware is designed to work with Home Assistant through ESPHome and provides a local web interface.
+The firmware is designed to work with Home Assistant through ESPHome and provides a local web interface. Since **v1.6.0**, MQTT control is available on ESP8266 / ESP8285 and ESP32, while direct browser control over **Bluetooth Low Energy (BLE)** is available on ESP32.
 
-**🔗 [BrAiNPlug-Control](https://braineebug.github.io/BrAiNPlug/web/bpc.html)**
-Control your Plug or Paint your weekly ON/OFF schedule on a grid.
+**🔗 [BrAiNPlug-Control](https://braineebug.github.io/BrAiNPlug/web/bpc.html)**  
+Control your Plug directly through **BLE or MQTT**, or paint your weekly ON/OFF schedule on a grid.
 
 ---
 
@@ -36,7 +36,11 @@ Control your Plug or Paint your weekly ON/OFF schedule on a grid.
 - WiFi diagnostics (SSID, IP, signal strength)
 - Local ESPHome web interface
 - OTA firmware updates
-- No MQTT required
+- MQTT control and state publishing
+- Browser-based MQTT control through BrAiNPlug-Control
+- Direct browser-based BLE control on ESP32
+- BLE authentication using HMAC-SHA256 challenge/response
+- Optional BLE enable/disable switch on ESP32
 
 ---
 
@@ -50,8 +54,9 @@ BrAiNPlug/
 ├── base-brainplug.yaml
 ├── base-brainplug-esp32.yaml
 ├── pwrmeter-brainplug.yaml
+├── brainplug_components/ble_auth.h
 ├── devices/brainplug-configs.nfo
-└── web/wsb.html
+└── web/bpc.html
 ```
 
 ### `base-brainplug.yaml`
@@ -70,9 +75,13 @@ Optional power-meter package for devices using an **HLW8012 / BL0937** compatibl
 
 Contains the device-specific configurations and pin/calibration values for supported plugs.
 
-### `wsb.html`
+### `brainplug_components/ble_auth.h`
 
-Web based Weekly Schedule Builder.
+BLE authentication helper used by the ESP32 implementation. It provides the HMAC-SHA256 challenge/response authentication used by BrAiNPlug-Control.
+
+### `web/bpc.html`
+
+BrAiNPlug-Control web application. It supports both Web Bluetooth and MQTT connections.
 
 ---
 
@@ -247,6 +256,155 @@ localdomain: ".bk-net"
 
 ---
 
+# v1.6.0 Connectivity: MQTT + BLE
+
+Version **1.6.0** adds two new control paths to BrAiNPlug:
+
+- **MQTT**: available for ESP8266 / ESP8285 and ESP32.
+- **BLE**: available on ESP32 and designed for direct browser control through Web Bluetooth.
+- **BrAiNPlug-Control** can use either transport without changing the plug firmware.
+
+The normal ESPHome API and local web interface remain available as before. MQTT is an additional control and state interface, not a replacement for ESPHome.
+
+## MQTT
+
+MQTT is configured directly in the BrAiNPlug base packages. The broker is selected with the `mqttbroker` substitution and credentials are read from `secrets.yaml`.
+
+Example:
+
+```yaml
+substitutions:
+  device_name: brainplug
+  mqttbroker: "homeassistant.local"
+
+mqtt:
+  broker: ${mqttbroker}
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  topic_prefix: ${device_name}
+```
+
+The default topic prefix is the device name. BrAiNPlug-Control uses the following ESPHome MQTT topic layout:
+
+```text
+<topic_prefix>/<domain>/<object_id>/state
+<topic_prefix>/<domain>/<object_id>/command
+```
+
+### MQTT state / command topics
+
+| Function | Domain | Object ID | State | Command |
+|---|---|---|---|---|
+| Relay | `switch` | `switch` | `ON` / `OFF` | `ON` / `OFF` |
+| ChildLock | `switch` | `childlock` | `ON` / `OFF` | `ON` / `OFF` |
+| PowerONMode | `select` | `poweronmode` | text | text |
+| TimerMode | `select` | `timermode` | text | text |
+| TimerConf | `text` | `timerconf` | text | text |
+| Power | `sensor` | `power` | numeric | - |
+| Voltage | `sensor` | `voltage` | numeric | - |
+| Current | `sensor` | `current` | numeric | - |
+| TotalEnergy | `sensor` | `totalenergy` | numeric | - |
+| ActualDuration | `text_sensor` | `actualduration` | text | - |
+| WiFiSignal | `sensor` | `wifisignal` | numeric | - |
+| TimerStatus | `text_sensor` | `timerstatus` | text | - |
+```
+
+For example, with `device_name: brainplug`:
+
+```text
+brainplug/switch/switch/state
+brainplug/switch/switch/command
+brainplug/sensor/power/state
+brainplug/select/timermode/state
+brainplug/select/timermode/command
+brainplug/text/timerconf/state
+brainplug/text/timerconf/command
+```
+
+BrAiNPlug-Control connects to an MQTT broker over a browser-supported WebSocket MQTT URL such as `ws://homeassistant.local:9001` or `wss://...`, then subscribes to the state topics and publishes commands to the matching command topics.
+
+**Important:** browser MQTT control requires an MQTT broker with WebSocket support enabled. A normal MQTT TCP listener such as port `1883` cannot be used directly by a browser.
+
+## Bluetooth Low Energy (ESP32)
+
+The ESP32 base package includes an optional custom BLE GATT service. BLE is **off by default** and can be enabled with the `Bluetooth` switch. This keeps the BLE stack disabled when it is not needed.
+
+The service UUID is:
+
+```text
+a36c6568-2877-466d-ad19-bdbf301199a8
+```
+
+BrAiNPlug-Control uses the browser's **Web Bluetooth API** to connect directly to the ESP32. No MQTT broker, Home Assistant connection, or native control app is required for BLE control.
+
+### BLE authentication
+
+BLE control is protected by a challenge/response authentication scheme:
+
+1. The plug generates a fresh 16-byte nonce when a BLE client connects.
+2. BrAiNPlug-Control calculates an **HMAC-SHA256** response using the configured `ble_pin`.
+3. The response is verified by the ESP32.
+4. Only an authenticated client can read or write the protected characteristics.
+5. Failed authentication attempts use increasing delays, up to a 60-second delay.
+6. The nonce is replaced after an authentication attempt.
+
+The BLE key must be at least **12 characters** when using BrAiNPlug-Control.
+
+Example secret:
+
+```yaml
+ble_pin: "YOUR_LONG_RANDOM_BLE_KEY"
+```
+
+Do not reuse a weak or publicly shared key.
+
+### BLE-controlled functions
+
+The BLE interface exposes the main control and status functions used by BrAiNPlug-Control:
+
+- Relay
+- ChildLock
+- PowerONMode
+- TimerMode
+- TimerConf
+- Power
+- Voltage
+- Current
+- TotalEnergy
+- ActualDuration
+- WiFi signal strength
+- TimerStatus
+
+Relay, ChildLock, PowerONMode, TimerMode and TimerConf are writable after authentication. The status and power-monitoring characteristics are readable, with notifications used where appropriate.
+
+### Browser requirements
+
+Web Bluetooth support is required for BLE control. BrAiNPlug-Control currently expects a browser with Web Bluetooth support such as **Chrome or Edge on desktop, or Chrome on Android**.
+
+## BrAiNPlug-Control
+
+The control application is available here:
+
+**[BrAiNPlug-Control](https://braineebug.github.io/BrAiNPlug/web/bpc.html)**
+
+It supports:
+
+- Bluetooth / Web Bluetooth connection
+- MQTT connection
+- Saved plug profiles
+- MQTT broker settings
+- Quick Connect without saving
+- Relay control
+- ChildLock control
+- PowerONMode selection
+- Daily / Weekly / Duration timer configuration
+- Live timer status
+- Power, voltage, current and energy display
+- ActualDuration and WiFi signal display
+
+For MQTT connections, enter the plug's `topic_prefix` and a broker URL with WebSocket support. For BLE connections, enter the BLE key and select the plug from the browser Bluetooth chooser.
+
+---
 # Installation
 
 ## Requirements
@@ -275,6 +433,12 @@ ota_password: "YOUR_OTA_PASSWORD"
 ap_password: "YOUR_FALLBACK_PASSWORD"
 
 webgui_password: "YOUR_WEB_PASSWORD"
+
+mqtt_username: "YOUR_MQTT_USERNAME"
+mqtt_password: "YOUR_MQTT_PASSWORD"
+
+# ESP32 BLE authentication key
+ble_pin: "YOUR_BLE_KEY"
 ```
 
 ---
@@ -968,6 +1132,18 @@ Calibration values from another plug should not automatically be copied to a dif
 ---
 
 # Project Information
+
+## Current Release
+
+**v1.6.0**  
+Released: **2026-08-23**
+
+Highlights:
+
+- MQTT control and state integration
+- ESP32 Web Bluetooth control
+- Authenticated BLE GATT interface
+- BrAiNPlug-Control supports both MQTT and BLE
 
 Platform:
 
