@@ -16,7 +16,7 @@ Paint your weekly ON/OFF schedule on a grid.
 **🔗 [TASM0TA Shedule Builder-PRO](https://braineebug.github.io/BrAiNPlug/web/TASM0TA-Shedule.html)**
 For Tasm0ta-Experts use this PRO-Sheduler!
 
-**🔗 [BrAiNPlug-Control](https://braineebug.github.io/BrAiNPlug/web/bp-control.html)**
+**🔗 [BrAiNPlug-Control](https://braineebug.github.io/BrAiNPlug/web/bpc.html)**
 Connect your Plug via Bluetooth or MQTT.
 
 ---
