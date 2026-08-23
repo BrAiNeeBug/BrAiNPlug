@@ -1,8 +1,8 @@
 {
-  "name": "BrAiNPlug Bluetooth Control",
+  "name": "BrAiNPlug Control",
   "short_name": "BrAiNPlug",
-  "description": "Control a BrAiNPlug ESP32 smart plug directly over Bluetooth LE.",
-  "start_url": "./ble-control.html",
+  "description": "Control a BrAiNPlug.",
+  "start_url": "./bpc.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
