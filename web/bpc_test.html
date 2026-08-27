@@ -651,12 +651,12 @@ function mqttPublishAsync(topic, payload){
 }
 
 function tasmotaSubs(prefix){
-  return ['stat/'+prefix+'/POWER', 'stat/'+prefix+'/RESULT', 'tele/'+prefix+'/STATE', 'tele/'+prefix+'/SENSOR'];
+  return ['stat/'+prefix+'/#', 'tele/'+prefix+'/#'];
 }
 
 function mqttConnect(brokerUrl, prefix, deviceType, auth = {}){
   return new Promise((resolve, reject) => {
-    mqttPrefix = prefix;
+    mqttPrefix = prefix.trim().replace(/^\/+|\/+$/g, '');
     mqttDeviceType = deviceType || 'brainplug';
     let settled = false;
     const client = mqtt.connect(brokerUrl, { connectTimeout: 10000, reconnectPeriod: 2000, username: auth.username || undefined, password: auth.password || undefined });
@@ -668,7 +668,7 @@ function mqttConnect(brokerUrl, prefix, deviceType, auth = {}){
     }, 11000);
     client.on('connect', () => {
       if (settled) return;
-      const subs = mqttDeviceType === 'tasmota' ? tasmotaSubs(prefix) : Object.keys(MQTT_OBJECT_IDS).map(k => mqttTopic(k, 'state'));
+      const subs = mqttDeviceType === 'tasmota' ? tasmotaSubs(mqttPrefix) : Object.keys(MQTT_OBJECT_IDS).map(k => mqttTopic(k, 'state'));
       client.subscribe(subs, err => {
         clearTimeout(failTimer);
         if (err){ settled = true; reject(err); return; }
@@ -695,22 +695,33 @@ function mqttConnect(brokerUrl, prefix, deviceType, auth = {}){
 
 function refreshTasmotaState(){
   mqttPublishAsync('cmnd/'+mqttPrefix+'/POWER', '').catch(() => {});
+  mqttPublishAsync('cmnd/'+mqttPrefix+'/STATUS', '8').catch(() => {});
+}
+
+function extractEnergy(j){
+  if (j && j.ENERGY) return j.ENERGY;
+  if (j && j.StatusSNS && j.StatusSNS.ENERGY) return j.StatusSNS.ENERGY;
+  return null;
 }
 
 function handleTasmotaMessage(topic, str){
-  const p = mqttPrefix;
-  if (topic === 'stat/'+p+'/POWER'){
+  console.debug('[tasmota mqtt]', topic, str);
+  const seg = topic.split('/').pop(); // last path segment, e.g. POWER, RESULT, STATE, SENSOR, LWT, STATUS8
+
+  if (seg === 'POWER' || /^POWER\d*$/.test(seg)){
     if (str === 'ON' || str === 'OFF') updateRelay(str === 'ON' ? 1 : 0);
     return;
   }
-  if (topic === 'stat/'+p+'/RESULT'){
+  if (seg === 'RESULT' || /^STATUS/.test(seg)){
     try {
       const j = JSON.parse(str);
       if (j.POWER !== undefined) updateRelay(j.POWER === 'ON' ? 1 : 0);
+      const en = extractEnergy(j);
+      if (en) applyEnergyReading(en);
     } catch (err) { /* not JSON we care about */ }
     return;
   }
-  if (topic === 'tele/'+p+'/STATE'){
+  if (seg === 'STATE'){
     try {
       const j = JSON.parse(str);
       if (j.POWER !== undefined) updateRelay(j.POWER === 'ON' ? 1 : 0);
@@ -718,19 +729,21 @@ function handleTasmotaMessage(topic, str){
     } catch (err) { /* ignore */ }
     return;
   }
-  if (topic === 'tele/'+p+'/SENSOR'){
+  if (seg === 'SENSOR'){
     try {
       const j = JSON.parse(str);
-      const en = j.ENERGY;
-      if (en){
-        if (typeof en.Power === 'number') updatePower(en.Power);
-        if (typeof en.Voltage === 'number') updateVoltage(en.Voltage);
-        if (typeof en.Current === 'number') updateCurrent(en.Current);
-        if (typeof en.Total === 'number') updateEnergy(en.Total);
-      }
+      const en = extractEnergy(j);
+      if (en) applyEnergyReading(en);
     } catch (err) { /* ignore */ }
     return;
   }
+}
+
+function applyEnergyReading(en){
+  if (typeof en.Power === 'number') updatePower(en.Power);
+  if (typeof en.Voltage === 'number') updateVoltage(en.Voltage);
+  if (typeof en.Current === 'number') updateCurrent(en.Current);
+  if (typeof en.Total === 'number') updateEnergy(en.Total);
 }
 
 function handleMqttState(key, str){
