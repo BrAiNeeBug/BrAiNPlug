@@ -762,9 +762,11 @@ function reconstructTasmotaTimersFromCache(){
     const dayBool = tasmotaDaysToDayArray(daysStr);
     const dayTokenStr = DAY_TOKENS.filter((tok, i) => dayBool[i]).join('');
     for (let i = 0; i < n; i++){
-      const onH = g.on[i].split(':')[0];
-      const offH = g.off[i].split(':')[0];
-      entries.push(onH + '00-' + offH + '00:' + dayTokenStr);
+      let onH = parseInt(g.on[i].split(':')[0], 10);
+      let offH = parseInt(g.off[i].split(':')[0], 10);
+      if (offH <= onH) offH += 24; // OFF at/before ON-hour means "runs to end of day" (or wraps) — Tasmota sends that as 00:00
+      if (offH > 24) offH = 24;    // clamp — spans longer than one day-wrap aren't representable in the grid
+      entries.push(String(onH).padStart(2, '0') + '00-' + String(offH).padStart(2, '0') + '00:' + dayTokenStr);
     }
   });
 
@@ -878,6 +880,11 @@ function daysArrayToTasmota(dayBool){
   return TASMOTA_DAY_ORDER.map(tok => dayBool[DAY_TOKENS.indexOf(tok)] ? '1' : '0').join('');
 }
 
+function hhmmToTasmotaTime(hh, mm){
+  if (hh === '24') return '00:' + mm; // our "end of day" convention -> Tasmota's midnight
+  return hh + ':' + mm;
+}
+
 function timerConfToTasmotaSlots(mode, confStr){
   const slots = [];
   const repeat = (mode === 'WeeklySingle' || mode === 'DailySingle') ? 0 : 1;
@@ -891,15 +898,15 @@ function timerConfToTasmotaSlots(mode, confStr){
         if (idx >= 0) dayBool[idx] = true;
       }
       const days = daysArrayToTasmota(dayBool);
-      slots.push({ Time: m[1] + ':' + m[2], Days: days, Action: 1, Repeat: repeat });
-      slots.push({ Time: m[3] + ':' + m[4], Days: days, Action: 0, Repeat: repeat });
+      slots.push({ Time: hhmmToTasmotaTime(m[1], m[2]), Days: days, Action: 1, Repeat: repeat });
+      slots.push({ Time: hhmmToTasmotaTime(m[3], m[4]), Days: days, Action: 0, Repeat: repeat });
     });
   } else if (mode === 'Daily' || mode === 'DailySingle'){
     const m = confStr.match(/^(\d{2}):(\d{2}):\d{2}-(\d{2}):(\d{2}):\d{2}$/);
     if (m){
       const days = '1111111';
-      slots.push({ Time: m[1] + ':' + m[2], Days: days, Action: 1, Repeat: repeat });
-      slots.push({ Time: m[3] + ':' + m[4], Days: days, Action: 0, Repeat: repeat });
+      slots.push({ Time: hhmmToTasmotaTime(m[1], m[2]), Days: days, Action: 1, Repeat: repeat });
+      slots.push({ Time: hhmmToTasmotaTime(m[3], m[4]), Days: days, Action: 0, Repeat: repeat });
     }
   }
   return slots;
