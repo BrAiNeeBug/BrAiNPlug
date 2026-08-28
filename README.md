@@ -14,7 +14,7 @@ The firmware is designed to work with Home Assistant through ESPHome and provide
 Control your Plug directly through **BLE or MQTT**, or paint your weekly ON/OFF schedule on a grid.
 
 **🔗 [BrAiNPlug-Control-TEST](https://braineebug.github.io/BrAiNPlug/web/bpc_test.html)**  
-DEV-TEST-VERSION 1.6.2 (current test: tasmota read timer via mqtt)
+DEV-TEST-VERSION 1.6.4 (current test: tasmota read timer via mqtt)
 
 ---
 
