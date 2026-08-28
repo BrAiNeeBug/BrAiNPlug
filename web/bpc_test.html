@@ -223,7 +223,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.1)</h1>
+  <h1>BrAiNPlug — Control (1.6.2_TMTEST)</h1>
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
@@ -638,6 +638,8 @@ let activeTransport = null;
 let mqttClient = null;
 let mqttPrefix = '';
 let mqttDeviceType = 'brainplug';
+let tasmotaTimersCache = {};
+let tasmotaTimerDebounce = null;
 let lastRawTimerConf = '';
 
 function mqttTopic(key, kind){
@@ -696,6 +698,76 @@ function mqttConnect(brokerUrl, prefix, deviceType, auth = {}){
 function refreshTasmotaState(){
   mqttPublishAsync('cmnd/'+mqttPrefix+'/POWER', '').catch(() => {});
   mqttPublishAsync('cmnd/'+mqttPrefix+'/STATUS', '8').catch(() => {});
+  queryTasmotaTimers();
+}
+
+function queryTasmotaTimers(){
+  tasmotaTimersCache = {};
+  for (let i = 1; i <= TASMOTA_MAX_TIMERS; i++){
+    setTimeout(() => mqttPublishAsync('cmnd/' + mqttPrefix + '/Timer' + i, '').catch(() => {}), i * 120);
+  }
+}
+
+function scheduleTasmotaTimerReconstruct(){
+  clearTimeout(tasmotaTimerDebounce);
+  tasmotaTimerDebounce = setTimeout(reconstructTasmotaTimersFromCache, 600);
+}
+
+function tasmotaDaysToDayArray(str){
+  const dayBool = Array(7).fill(false); // indexed like DAY_TOKENS (Mo..Su)
+  for (let i = 0; i < 7 && i < str.length; i++){
+    if (str[i] === '1'){
+      const idx = DAY_TOKENS.indexOf(TASMOTA_DAY_ORDER[i]);
+      if (idx >= 0) dayBool[idx] = true;
+    }
+  }
+  return dayBool;
+}
+
+function reconstructTasmotaTimersFromCache(){
+  const timers = Object.values(tasmotaTimersCache).filter(t => t && t.Arm === 1 && t.Mode === 0 && typeof t.Time === 'string');
+  if (!timers.length){
+    for (let d = 0; d < 7; d++) for (let h = 0; h < HOURS; h++) state[d][h] = false;
+    gridEl.querySelectorAll('.cell').forEach(cell => cell.classList.remove('active'));
+    setOutput('');
+    lastTimerMode = 'OFF';
+    timerModeValue.textContent = 'OFF';
+    updateTimerSummary('OFF', '');
+    return;
+  }
+
+  // Group armed timers by their Days pattern, split into ON/OFF times per group
+  const groups = new Map();
+  timers.forEach(t => {
+    const key = t.Days || '0000000';
+    if (!groups.has(key)) groups.set(key, { on: [], off: [], repeat: 0 });
+    const g = groups.get(key);
+    (t.Action === 1 ? g.on : g.off).push(t.Time);
+    if (t.Repeat) g.repeat = 1;
+  });
+
+  const entries = [];
+  let anyRepeat = false;
+  groups.forEach((g, daysStr) => {
+    g.on.sort(); g.off.sort();
+    const n = Math.min(g.on.length, g.off.length); // pairs ON[i] with OFF[i] chronologically
+    if (!n) return;
+    if (g.repeat) anyRepeat = true;
+    const dayBool = tasmotaDaysToDayArray(daysStr);
+    const dayTokenStr = DAY_TOKENS.filter((tok, i) => dayBool[i]).join('');
+    for (let i = 0; i < n; i++){
+      const onH = g.on[i].split(':')[0];
+      const offH = g.off[i].split(':')[0];
+      entries.push(onH + '00-' + offH + '00:' + dayTokenStr);
+    }
+  });
+
+  const confStr = entries.join(';');
+  const mode = anyRepeat ? 'Weekly' : 'WeeklySingle';
+  applyTimerConfToUI(mode, confStr);
+  lastTimerMode = mode;
+  timerModeValue.textContent = mode;
+  updateTimerSummary(mode, '');
 }
 
 function extractEnergy(j){
@@ -715,6 +787,12 @@ function handleTasmotaMessage(topic, str){
   if (seg === 'RESULT' || /^STATUS/.test(seg)){
     try {
       const j = JSON.parse(str);
+      const timerKey = Object.keys(j).find(k => /^Timer\d+$/.test(k));
+      if (timerKey){
+        tasmotaTimersCache[timerKey] = j[timerKey];
+        scheduleTasmotaTimerReconstruct();
+        return;
+      }
       if (j.POWER !== undefined) updateRelay(j.POWER === 'ON' ? 1 : 0);
       const en = extractEnergy(j);
       if (en) applyEnergyReading(en);
