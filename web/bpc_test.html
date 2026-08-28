@@ -223,7 +223,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.2_TMTEST)</h1>
+  <h1>BrAiNPlug — Control (1.6.4_TMTEST)</h1>
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
@@ -724,8 +724,14 @@ function tasmotaDaysToDayArray(str){
   return dayBool;
 }
 
+function isTimerArmed(t){
+  if (typeof t.Arm !== 'undefined') return t.Arm === 1;
+  if (typeof t.Enable !== 'undefined') return t.Enable === 1;
+  return false;
+}
+
 function reconstructTasmotaTimersFromCache(){
-  const timers = Object.values(tasmotaTimersCache).filter(t => t && t.Arm === 1 && t.Mode === 0 && typeof t.Time === 'string');
+  const timers = Object.values(tasmotaTimersCache).filter(t => t && isTimerArmed(t) && (t.Mode === 0 || typeof t.Mode === 'undefined') && typeof t.Time === 'string');
   if (!timers.length){
     for (let d = 0; d < 7; d++) for (let h = 0; h < HOURS; h++) state[d][h] = false;
     gridEl.querySelectorAll('.cell').forEach(cell => cell.classList.remove('active'));
@@ -905,8 +911,8 @@ function publishTasmotaTimers(slots){
     const idx = i + 1;
     const slot = slots[i];
     const payload = slot
-      ? JSON.stringify({ Arm: 1, Mode: 0, Time: slot.Time, Window: 0, Days: slot.Days, Repeat: slot.Repeat, Output: 1, Action: slot.Action })
-      : JSON.stringify({ Arm: 0, Days: '0000000' });
+      ? JSON.stringify({ Arm: 1, Enable: 1, Mode: 0, Time: slot.Time, Window: 0, Days: slot.Days, Repeat: slot.Repeat, Output: 1, Action: slot.Action })
+      : JSON.stringify({ Arm: 0, Enable: 0, Days: '0000000' });
     pubs.push(mqttPublishAsync('cmnd/' + mqttPrefix + '/Timer' + idx, payload));
   }
   return Promise.all(pubs);
