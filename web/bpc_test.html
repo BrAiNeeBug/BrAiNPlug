@@ -223,7 +223,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.5_TMTEST)</h1>
+  <h1>BrAiNPlug — Control (1.6.4_TMTEST)</h1>
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
@@ -397,8 +397,8 @@
 
       <div class="tab-panel" id="tab-daily">
         <div class="time-row">
-          <div class="time-field"><label for="dailyStart">ON at</label><input type="time" id="dailyStart" step="1" value="08:00:00" lang="de-DE"></div>
-          <div class="time-field"><label for="dailyEnd">OFF at</label><input type="time" id="dailyEnd" step="1" value="18:00:00" lang="de-DE"></div>
+          <div class="time-field"><label for="dailyStart">ON at</label><input type="time" id="dailyStart" step="1" value="08:00:00"></div>
+          <div class="time-field"><label for="dailyEnd">OFF at</label><input type="time" id="dailyEnd" step="1" value="18:00:00"></div>
         </div>
         <div class="row-actions">
           <button id="setDailyBtn" class="primary" disabled>Set as Daily</button>
@@ -409,8 +409,8 @@
 
       <div class="tab-panel" id="tab-duration">
         <div class="time-row">
-          <div class="time-field"><label for="durationOn">ON for</label><input type="time" id="durationOn" step="1" value="00:00:10" lang="de-DE"></div>
-          <div class="time-field"><label for="durationOff">OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05" lang="de-DE"></div>
+          <div class="time-field"><label for="durationOn">ON for</label><input type="time" id="durationOn" step="1" value="00:00:10"></div>
+          <div class="time-field"><label for="durationOff">OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05"></div>
         </div>
         <div class="row-actions">
           <button id="setDurationBtn" class="primary" disabled>Set as Duration</button>
@@ -758,11 +758,26 @@ function reconstructTasmotaTimersFromCache(){
     (t.Action === 1 ? g.on : g.off).push(t.Time);
     if (t.Repeat) g.repeat = 1;
   });
+  groups.forEach(g => { g.on.sort(); g.off.sort(); });
+
+  // Special case: exactly one group, covering all 7 days, with one ON/OFF pair -> that's really a Daily schedule
+  if (groups.size === 1 && groups.has('1111111')){
+    const g = groups.get('1111111');
+    if (Math.min(g.on.length, g.off.length) === 1){
+      const dailyConf = g.on[0] + ':00-' + g.off[0] + ':00';
+      const dailyMode = g.repeat ? 'Daily' : 'DailySingle';
+      applyTimerConfToUI(dailyMode, dailyConf);
+      lastTimerMode = dailyMode;
+      timerModeValue.textContent = dailyMode;
+      activateTab('daily');
+      updateTimerSummary(dailyMode, '');
+      return;
+    }
+  }
 
   const entries = [];
   let anyRepeat = false;
   groups.forEach((g, daysStr) => {
-    g.on.sort(); g.off.sort();
     const n = Math.min(g.on.length, g.off.length); // pairs ON[i] with OFF[i] chronologically
     if (!n) return;
     if (g.repeat) anyRepeat = true;
@@ -782,6 +797,7 @@ function reconstructTasmotaTimersFromCache(){
   applyTimerConfToUI(mode, confStr);
   lastTimerMode = mode;
   timerModeValue.textContent = mode;
+  activateTab('weekly');
   updateTimerSummary(mode, '');
 }
 
