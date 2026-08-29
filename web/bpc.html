@@ -223,7 +223,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.0)</h1>
+  <h1>BrAiNPlug — Control (1.6.5)</h1>
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
@@ -268,6 +268,14 @@
 
         <div id="mqttPlugSettings" style="display:none;">
           <div class="form-field full-field" style="margin-bottom: 10px;">
+            <label for="plugDeviceTypeSelect">Device type</label>
+            <select class="pmode-select" id="plugDeviceTypeSelect">
+              <option value="brainplug">BrAiNPlug (ESPHome)</option>
+              <option value="tasmota">Tasmota</option>
+            </select>
+            <a href="https://braineebug.github.io/TMUP/tmup.html" target="_blank" rel="noopener" id="tasmotaFwLink" class="hint" style="display:none; margin-top:6px;">Tasmota firmware update tool (TMUP) →</a>
+          </div>
+          <div class="form-field full-field" style="margin-bottom: 10px;">
             <label for="plugPrefixInput">MQTT topic_prefix</label>
             <input type="text" id="plugPrefixInput" placeholder="e.g. brainplug" autocomplete="off">
           </div>
@@ -310,14 +318,14 @@
       </div>
       <div class="switch disabled" id="relaySwitch"><div class="knob"></div></div>
     </div>
-    <div class="toggle-row" style="margin-top:14px;">
+    <div class="toggle-row" style="margin-top:14px;" id="childlockRow">
       <div>
         <div class="toggle-label">ChildLock</div>
         <div class="toggle-sub">blocks button + soft switching while on</div>
       </div>
       <div class="switch disabled" id="childlockSwitch"><div class="knob"></div></div>
     </div>
-    <div class="toggle-row" style="margin-top:14px;">
+    <div class="toggle-row" style="margin-top:14px;" id="powerModeRow">
       <div>
         <div class="toggle-label">PowerONMode</div>
         <div class="toggle-sub">state to restore to after power loss</div>
@@ -345,7 +353,7 @@
         <div class="stat-label">TotalEnergy</div>
         <div class="stat-value" id="energyValue">–</div>
       </div>
-      <div class="stat">
+      <div class="stat" id="actualDurationStat">
         <div class="stat-label">ActualDuration</div>
         <div class="stat-value" id="actualDurationValue" style="font-size:14px;">–</div>
       </div>
@@ -366,6 +374,7 @@
     </div>
 
     <div class="timer-body" id="timerBody" style="display:none;">
+      <p class="hint" id="tasmotaTimerHint" style="display:none;">Tasmota: Weekly/Daily get converted to Timer1–16 (2 slots each) on Set, unused slots get disarmed automatically. Duration mode isn't supported by Tasmota's timer system.</p>
       <div class="tabs">
         <button class="tab active" data-tab="weekly">Weekly</button>
         <button class="tab" data-tab="daily">Daily</button>
@@ -454,6 +463,8 @@ const MQTT_OBJECT_IDS = {
 
 const AUTH_TIMEOUT_MS = 65000;
 const MIN_KEY_LEN = 12;
+const TASMOTA_MAX_TIMERS = 16;
+const TASMOTA_DAY_ORDER = ['Su','Mo','Tu','We','Th','Fr','Sa']; // Tasmota Days string order (Sun..Sat)
 
 function waitForAuthNotify(timeoutMs){
   return new Promise((resolve, reject) => {
@@ -511,7 +522,7 @@ function renderPlugList(){
     const row = document.createElement('div');
     row.className = 'toggle-row'; row.style.marginTop = '10px';
     const left = document.createElement('div');
-    const sub = plug.mode === 'mqtt' ? ('MQTT · ' + plug.prefix) : 'Bluetooth';
+    const sub = plug.mode === 'mqtt' ? ('MQTT · ' + (plug.deviceType === 'tasmota' ? 'Tasmota' : 'BrAiNPlug') + ' · ' + plug.prefix) : 'Bluetooth';
     left.innerHTML = '<div class="toggle-label">' + plug.name + '</div><div class="toggle-sub">' + sub + (plug.id === activePlugId ? ' · active' : '') + '</div>';
     const actions = document.createElement('div');
     actions.style.display = 'flex'; actions.style.gap = '6px';
@@ -535,6 +546,7 @@ function renderPlugList(){
 renderPlugList();
 
 const plugModeSelect = document.getElementById('plugModeSelect');
+const plugDeviceTypeSelect = document.getElementById('plugDeviceTypeSelect');
 const plugPrefixInput = document.getElementById('plugPrefixInput');
 const plugKeyInput = document.getElementById('plugKeyInput');
 const blePlugSettings = document.getElementById('blePlugSettings');
@@ -542,18 +554,25 @@ const mqttPlugSettings = document.getElementById('mqttPlugSettings');
 const brokerUrlInput = document.getElementById('brokerUrlInput');
 const brokerUserInput = document.getElementById('brokerUserInput');
 const brokerPasswordInput = document.getElementById('brokerPasswordInput');
+const tasmotaFwLink = document.getElementById('tasmotaFwLink');
 
 function syncPlugConnectionFields(){
   const ble = plugModeSelect.value === 'ble';
   blePlugSettings.style.display = ble ? '' : 'none';
   mqttPlugSettings.style.display = ble ? 'none' : '';
+  syncTasmotaFwLink();
 }
+function syncTasmotaFwLink(){
+  tasmotaFwLink.style.display = (plugModeSelect.value === 'mqtt' && plugDeviceTypeSelect.value === 'tasmota') ? 'block' : 'none';
+}
+plugDeviceTypeSelect.addEventListener('change', syncTasmotaFwLink);
 plugModeSelect.addEventListener('change', syncPlugConnectionFields);
 syncPlugConnectionFields();
 
 document.getElementById('addPlugBtn').addEventListener('click', async () => {
   const name = document.getElementById('plugNameInput').value.trim();
   const mode = plugModeSelect.value;
+  const deviceType = plugDeviceTypeSelect.value;
   const prefix = plugPrefixInput.value.trim();
   const key = plugKeyInput.value.trim();
 
@@ -563,7 +582,7 @@ document.getElementById('addPlugBtn').addEventListener('click', async () => {
 
   if (mode === 'mqtt') saveBrokerSettings();
 
-  const newPlug = { id: 'p' + Date.now(), name, mode, prefix, key: mode === 'ble' ? key : '' };
+  const newPlug = { id: 'p' + Date.now(), name, mode, deviceType: mode === 'mqtt' ? deviceType : '', prefix, key: mode === 'ble' ? key : '' };
   plugs.push(newPlug);
   savePlugs(plugs);
   document.getElementById('plugNameInput').value = '';
@@ -576,6 +595,7 @@ document.getElementById('addPlugBtn').addEventListener('click', async () => {
 
 document.getElementById('quickConnectBtn').addEventListener('click', async () => {
   const mode = plugModeSelect.value;
+  const deviceType = plugDeviceTypeSelect.value;
   const key = plugKeyInput.value.trim();
   const prefix = plugPrefixInput.value.trim();
   const name = document.getElementById('plugNameInput').value.trim();
@@ -598,10 +618,11 @@ document.getElementById('quickConnectBtn').addEventListener('click', async () =>
   setConnectedUI(false);
   statusText.textContent = 'Connecting via MQTT…';
   try {
-    await mqttConnect(broker, prefix, { username: brokerUserInput.value.trim(), password: brokerPasswordInput.value });
+    await mqttConnect(broker, prefix, deviceType, { username: brokerUserInput.value.trim(), password: brokerPasswordInput.value });
     activeTransport = mqttTransport;
     statusText.textContent = 'MQTT Quick Connect';
     setConnectedUI(true);
+    if (deviceType === 'tasmota') refreshTasmotaState();
   } catch (err) {
     statusText.textContent = 'MQTT connect failed: ' + err.message;
     activePlugId = null;
@@ -623,15 +644,29 @@ try {
 let activeTransport = null;
 let mqttClient = null;
 let mqttPrefix = '';
+let mqttDeviceType = 'brainplug';
+let tasmotaTimersCache = {};
+let tasmotaTimerDebounce = null;
 let lastRawTimerConf = '';
 
 function mqttTopic(key, kind){
   return mqttPrefix + '/' + MQTT_DOMAINS[key] + '/' + MQTT_OBJECT_IDS[key] + '/' + kind;
 }
 
-function mqttConnect(brokerUrl, prefix, auth = {}){
+function mqttPublishAsync(topic, payload){
   return new Promise((resolve, reject) => {
-    mqttPrefix = prefix;
+    mqttClient.publish(topic, payload, err => err ? reject(err) : resolve());
+  });
+}
+
+function tasmotaSubs(prefix){
+  return ['stat/'+prefix+'/#', 'tele/'+prefix+'/#'];
+}
+
+function mqttConnect(brokerUrl, prefix, deviceType, auth = {}){
+  return new Promise((resolve, reject) => {
+    mqttPrefix = prefix.trim().replace(/^\/+|\/+$/g, '');
+    mqttDeviceType = deviceType || 'brainplug';
     let settled = false;
     const client = mqtt.connect(brokerUrl, { connectTimeout: 10000, reconnectPeriod: 2000, username: auth.username || undefined, password: auth.password || undefined });
     const failTimer = setTimeout(() => {
@@ -642,7 +677,7 @@ function mqttConnect(brokerUrl, prefix, auth = {}){
     }, 11000);
     client.on('connect', () => {
       if (settled) return;
-      const subs = Object.keys(MQTT_OBJECT_IDS).map(k => mqttTopic(k, 'state'));
+      const subs = mqttDeviceType === 'tasmota' ? tasmotaSubs(mqttPrefix) : Object.keys(MQTT_OBJECT_IDS).map(k => mqttTopic(k, 'state'));
       client.subscribe(subs, err => {
         clearTimeout(failTimer);
         if (err){ settled = true; reject(err); return; }
@@ -659,11 +694,165 @@ function mqttConnect(brokerUrl, prefix, auth = {}){
     });
     client.on('message', (topic, payloadBuf) => {
       const str = payloadBuf.toString();
+      if (mqttDeviceType === 'tasmota'){ handleTasmotaMessage(topic, str); return; }
       for (const key of Object.keys(MQTT_OBJECT_IDS)){
         if (topic === mqttTopic(key, 'state')){ handleMqttState(key, str); return; }
       }
     });
   });
+}
+
+function refreshTasmotaState(){
+  mqttPublishAsync('cmnd/'+mqttPrefix+'/POWER', '').catch(() => {});
+  mqttPublishAsync('cmnd/'+mqttPrefix+'/STATUS', '8').catch(() => {});
+  queryTasmotaTimers();
+}
+
+function queryTasmotaTimers(){
+  tasmotaTimersCache = {};
+  for (let i = 1; i <= TASMOTA_MAX_TIMERS; i++){
+    setTimeout(() => mqttPublishAsync('cmnd/' + mqttPrefix + '/Timer' + i, '').catch(() => {}), i * 120);
+  }
+}
+
+function scheduleTasmotaTimerReconstruct(){
+  clearTimeout(tasmotaTimerDebounce);
+  tasmotaTimerDebounce = setTimeout(reconstructTasmotaTimersFromCache, 600);
+}
+
+function tasmotaDaysToDayArray(str){
+  const dayBool = Array(7).fill(false); // indexed like DAY_TOKENS (Mo..Su)
+  for (let i = 0; i < 7 && i < str.length; i++){
+    if (str[i] === '1'){
+      const idx = DAY_TOKENS.indexOf(TASMOTA_DAY_ORDER[i]);
+      if (idx >= 0) dayBool[idx] = true;
+    }
+  }
+  return dayBool;
+}
+
+function isTimerArmed(t){
+  if (typeof t.Arm !== 'undefined') return t.Arm === 1;
+  if (typeof t.Enable !== 'undefined') return t.Enable === 1;
+  return false;
+}
+
+function reconstructTasmotaTimersFromCache(){
+  const timers = Object.values(tasmotaTimersCache).filter(t => t && isTimerArmed(t) && (t.Mode === 0 || typeof t.Mode === 'undefined') && typeof t.Time === 'string');
+  if (!timers.length){
+    for (let d = 0; d < 7; d++) for (let h = 0; h < HOURS; h++) state[d][h] = false;
+    gridEl.querySelectorAll('.cell').forEach(cell => cell.classList.remove('active'));
+    setOutput('');
+    lastTimerMode = 'OFF';
+    timerModeValue.textContent = 'OFF';
+    updateTimerSummary('OFF', '');
+    return;
+  }
+
+  // Group armed timers by their Days pattern, split into ON/OFF times per group
+  const groups = new Map();
+  timers.forEach(t => {
+    const key = t.Days || '0000000';
+    if (!groups.has(key)) groups.set(key, { on: [], off: [], repeat: 0 });
+    const g = groups.get(key);
+    (t.Action === 1 ? g.on : g.off).push(t.Time);
+    if (t.Repeat) g.repeat = 1;
+  });
+  groups.forEach(g => { g.on.sort(); g.off.sort(); });
+
+  // Special case: exactly one group, covering all 7 days, with one ON/OFF pair -> that's really a Daily schedule
+  if (groups.size === 1 && groups.has('1111111')){
+    const g = groups.get('1111111');
+    if (Math.min(g.on.length, g.off.length) === 1){
+      const dailyConf = g.on[0] + ':00-' + g.off[0] + ':00';
+      const dailyMode = g.repeat ? 'Daily' : 'DailySingle';
+      applyTimerConfToUI(dailyMode, dailyConf);
+      lastTimerMode = dailyMode;
+      timerModeValue.textContent = dailyMode;
+      activateTab('daily');
+      updateTimerSummary(dailyMode, '');
+      return;
+    }
+  }
+
+  const entries = [];
+  let anyRepeat = false;
+  groups.forEach((g, daysStr) => {
+    const n = Math.min(g.on.length, g.off.length); // pairs ON[i] with OFF[i] chronologically
+    if (!n) return;
+    if (g.repeat) anyRepeat = true;
+    const dayBool = tasmotaDaysToDayArray(daysStr);
+    const dayTokenStr = DAY_TOKENS.filter((tok, i) => dayBool[i]).join('');
+    for (let i = 0; i < n; i++){
+      let onH = parseInt(g.on[i].split(':')[0], 10);
+      let offH = parseInt(g.off[i].split(':')[0], 10);
+      if (offH <= onH) offH += 24; // OFF at/before ON-hour means "runs to end of day" (or wraps) — Tasmota sends that as 00:00
+      if (offH > 24) offH = 24;    // clamp — spans longer than one day-wrap aren't representable in the grid
+      entries.push(String(onH).padStart(2, '0') + '00-' + String(offH).padStart(2, '0') + '00:' + dayTokenStr);
+    }
+  });
+
+  const confStr = entries.join(';');
+  const mode = anyRepeat ? 'Weekly' : 'WeeklySingle';
+  applyTimerConfToUI(mode, confStr);
+  lastTimerMode = mode;
+  timerModeValue.textContent = mode;
+  activateTab('weekly');
+  updateTimerSummary(mode, '');
+}
+
+function extractEnergy(j){
+  if (j && j.ENERGY) return j.ENERGY;
+  if (j && j.StatusSNS && j.StatusSNS.ENERGY) return j.StatusSNS.ENERGY;
+  return null;
+}
+
+function handleTasmotaMessage(topic, str){
+  console.debug('[tasmota mqtt]', topic, str);
+  const seg = topic.split('/').pop(); // last path segment, e.g. POWER, RESULT, STATE, SENSOR, LWT, STATUS8
+
+  if (seg === 'POWER' || /^POWER\d*$/.test(seg)){
+    if (str === 'ON' || str === 'OFF') updateRelay(str === 'ON' ? 1 : 0);
+    return;
+  }
+  if (seg === 'RESULT' || /^STATUS/.test(seg)){
+    try {
+      const j = JSON.parse(str);
+      const timerKey = Object.keys(j).find(k => /^Timer\d+$/.test(k));
+      if (timerKey){
+        tasmotaTimersCache[timerKey] = j[timerKey];
+        scheduleTasmotaTimerReconstruct();
+        return;
+      }
+      if (j.POWER !== undefined) updateRelay(j.POWER === 'ON' ? 1 : 0);
+      const en = extractEnergy(j);
+      if (en) applyEnergyReading(en);
+    } catch (err) { /* not JSON we care about */ }
+    return;
+  }
+  if (seg === 'STATE'){
+    try {
+      const j = JSON.parse(str);
+      if (j.POWER !== undefined) updateRelay(j.POWER === 'ON' ? 1 : 0);
+      if (j.Wifi && typeof j.Wifi.RSSI === 'number') updateWifiSignal(j.Wifi.RSSI);
+    } catch (err) { /* ignore */ }
+    return;
+  }
+  if (seg === 'SENSOR'){
+    try {
+      const j = JSON.parse(str);
+      const en = extractEnergy(j);
+      if (en) applyEnergyReading(en);
+    } catch (err) { /* ignore */ }
+    return;
+  }
+}
+
+function applyEnergyReading(en){
+  if (typeof en.Power === 'number') updatePower(en.Power);
+  if (typeof en.Voltage === 'number') updateVoltage(en.Voltage);
+  if (typeof en.Current === 'number') updateCurrent(en.Current);
+  if (typeof en.Total === 'number') updateEnergy(en.Total);
 }
 
 function handleMqttState(key, str){
@@ -698,12 +887,66 @@ const bleTransport = {
 const mqttTransport = {
   kind: 'mqtt',
   write(key, value){
+    if (mqttDeviceType === 'tasmota'){
+      if (key === 'relay') return mqttPublishAsync('cmnd/'+mqttPrefix+'/POWER', value ? 'ON' : 'OFF');
+      return Promise.reject(new Error('Not supported for Tasmota'));
+    }
     const payload = (key === 'relay' || key === 'childlock') ? (value ? 'ON' : 'OFF') : String(value);
     return new Promise((resolve, reject) => {
       mqttClient.publish(mqttTopic(key, 'command'), payload, err => err ? reject(err) : resolve());
     });
   }
 };
+
+/* --- Tasmota timer translation: our TimerConf string -> Tasmota Timer1..16 --- */
+function daysArrayToTasmota(dayBool){
+  return TASMOTA_DAY_ORDER.map(tok => dayBool[DAY_TOKENS.indexOf(tok)] ? '1' : '0').join('');
+}
+
+function hhmmToTasmotaTime(hh, mm){
+  if (hh === '24') return '00:' + mm; // our "end of day" convention -> Tasmota's midnight
+  return hh + ':' + mm;
+}
+
+function timerConfToTasmotaSlots(mode, confStr){
+  const slots = [];
+  const repeat = (mode === 'WeeklySingle' || mode === 'DailySingle') ? 0 : 1;
+  if (mode === 'Weekly' || mode === 'WeeklySingle'){
+    confStr.split(';').forEach(entry => {
+      const m = entry.trim().match(/^(\d{2})(\d{2})-(\d{2})(\d{2}):([A-Za-z]+)$/);
+      if (!m) return;
+      const dayBool = Array(7).fill(false);
+      for (let i = 0; i < m[5].length; i += 2){
+        const idx = DAY_TOKENS.indexOf(m[5].substr(i, 2));
+        if (idx >= 0) dayBool[idx] = true;
+      }
+      const days = daysArrayToTasmota(dayBool);
+      slots.push({ Time: hhmmToTasmotaTime(m[1], m[2]), Days: days, Action: 1, Repeat: repeat });
+      slots.push({ Time: hhmmToTasmotaTime(m[3], m[4]), Days: days, Action: 0, Repeat: repeat });
+    });
+  } else if (mode === 'Daily' || mode === 'DailySingle'){
+    const m = confStr.match(/^(\d{2}):(\d{2}):\d{2}-(\d{2}):(\d{2}):\d{2}$/);
+    if (m){
+      const days = '1111111';
+      slots.push({ Time: hhmmToTasmotaTime(m[1], m[2]), Days: days, Action: 1, Repeat: repeat });
+      slots.push({ Time: hhmmToTasmotaTime(m[3], m[4]), Days: days, Action: 0, Repeat: repeat });
+    }
+  }
+  return slots;
+}
+
+function publishTasmotaTimers(slots){
+  const pubs = [];
+  for (let i = 0; i < TASMOTA_MAX_TIMERS; i++){
+    const idx = i + 1;
+    const slot = slots[i];
+    const payload = slot
+      ? JSON.stringify({ Arm: 1, Enable: 1, Mode: 0, Time: slot.Time, Window: 0, Days: slot.Days, Repeat: slot.Repeat, Output: 1, Action: slot.Action })
+      : JSON.stringify({ Arm: 0, Enable: 0, Days: '0000000' });
+    pubs.push(mqttPublishAsync('cmnd/' + mqttPrefix + '/Timer' + idx, payload));
+  }
+  return Promise.all(pubs);
+}
 
 async function selectPlug(plug){
   if (device && device.gatt && device.gatt.connected) device.gatt.disconnect();
@@ -724,10 +967,11 @@ async function selectPlug(plug){
   activePlugId = plug.id; renderPlugList();
   statusText.textContent = 'Connecting to ' + plug.name + ' via MQTT…';
   try {
-    await mqttConnect(broker, plug.prefix, { username: brokerUserInput.value.trim(), password: brokerPasswordInput.value });
+    await mqttConnect(broker, plug.prefix, plug.deviceType || 'brainplug', { username: brokerUserInput.value.trim(), password: brokerPasswordInput.value });
     activeTransport = mqttTransport;
     statusText.textContent = plug.name;
     setConnectedUI(true);
+    if (mqttDeviceType === 'tasmota') refreshTasmotaState();
   } catch (err) {
     statusText.textContent = 'MQTT connect failed: ' + err.message;
     activePlugId = null;
@@ -767,6 +1011,19 @@ if (!navigator.bluetooth) {
   document.getElementById('unsupportedHint').style.display = 'block';
 }
 
+const childlockRow = document.getElementById('childlockRow');
+const powerModeRow = document.getElementById('powerModeRow');
+const actualDurationStat = document.getElementById('actualDurationStat');
+const tasmotaTimerHint = document.getElementById('tasmotaTimerHint');
+
+function applyDeviceCapabilitiesUI(){
+  const tasmota = !!(activeTransport && activeTransport.kind === 'mqtt' && mqttDeviceType === 'tasmota');
+  childlockRow.style.display = tasmota ? 'none' : '';
+  powerModeRow.style.display = tasmota ? 'none' : '';
+  actualDurationStat.style.display = tasmota ? 'none' : '';
+  tasmotaTimerHint.style.display = tasmota ? '' : 'none';
+}
+
 function setConnectedUI(connected){
   statusDot.classList.toggle('connected', connected);
   disconnectBtn.style.display = connected ? 'inline-block' : 'none';
@@ -776,6 +1033,7 @@ function setConnectedUI(connected){
   powerModeSelect.disabled = !connected;
   setBtns.forEach(b => b.disabled = !connected);
   timerOffBtns.forEach(b => b.disabled = !connected);
+  applyDeviceCapabilitiesUI();
 
   if (connected) {
     plugFormContainer.style.display = 'none';
@@ -1132,6 +1390,34 @@ async function setTimer(mode){
     showWriteStatus('Build or paste a TimerConf string first.', false);
     return;
   }
+
+  if (activeTransport.kind === 'mqtt' && mqttDeviceType === 'tasmota'){
+    if (mode === 'Duration'){
+      showWriteStatus("Duration mode isn't supported by Tasmota's timer system (clock-time events only, no repeating interval).", false);
+      return;
+    }
+    const slots = timerConfToTasmotaSlots(mode, value);
+    if (!slots.length){
+      showWriteStatus('Could not parse that schedule.', false);
+      return;
+    }
+    if (slots.length > TASMOTA_MAX_TIMERS){
+      showWriteStatus(`Needs ${slots.length} Tasmota timer slots, only ${TASMOTA_MAX_TIMERS} available — simplify the schedule.`, false);
+      return;
+    }
+    try {
+      await mqttPublishAsync('cmnd/' + mqttPrefix + '/Timers', '1');
+      await publishTasmotaTimers(slots);
+      lastTimerMode = mode;
+      timerModeValue.textContent = lastTimerMode;
+      updateTimerSummary(lastTimerMode, '');
+      showWriteStatus(`Wrote ${slots.length} Tasmota timer slot(s) for ${mode}, cleared the rest.`, true);
+    } catch (err) {
+      showWriteStatus('Write failed: ' + err.message, false);
+    }
+    return;
+  }
+
   try {
     await activeTransport.write('timerconf', value);
     await activeTransport.write('timermode', mode);
@@ -1149,6 +1435,14 @@ document.getElementById('setDurationBtn').addEventListener('click', () => setTim
 timerOffBtns.forEach(btn => btn.addEventListener('click', async () => {
   if (!activeTransport) return;
   try {
+    if (activeTransport.kind === 'mqtt' && mqttDeviceType === 'tasmota'){
+      await publishTasmotaTimers([]);
+      lastTimerMode = 'OFF';
+      timerModeValue.textContent = 'OFF';
+      updateTimerSummary('OFF', '');
+      showWriteStatus('All 16 Tasmota timer slots disarmed.', true);
+      return;
+    }
     await activeTransport.write('timermode', 'OFF');
     showWriteStatus('TimerMode set to OFF.', true);
   } catch (err) {
