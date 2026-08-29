@@ -223,7 +223,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.4_TMTEST)</h1>
+  <h1>BrAiNPlug — Control (1.6.5_TMTEST)</h1>
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
@@ -273,6 +273,7 @@
               <option value="brainplug">BrAiNPlug (ESPHome)</option>
               <option value="tasmota">Tasmota</option>
             </select>
+            <a href="https://braineebug.github.io/TMUP/tmup.html" target="_blank" rel="noopener" id="tasmotaFwLink" class="hint" style="display:none; margin-top:6px;">Tasmota firmware update tool (TMUP) →</a>
           </div>
           <div class="form-field full-field" style="margin-bottom: 10px;">
             <label for="plugPrefixInput">MQTT topic_prefix</label>
@@ -396,8 +397,8 @@
 
       <div class="tab-panel" id="tab-daily">
         <div class="time-row">
-          <div class="time-field"><label for="dailyStart">ON at</label><input type="time" id="dailyStart" step="1" value="08:00:00"></div>
-          <div class="time-field"><label for="dailyEnd">OFF at</label><input type="time" id="dailyEnd" step="1" value="18:00:00"></div>
+          <div class="time-field"><label for="dailyStart">ON at</label><input type="time" id="dailyStart" step="1" value="08:00:00" lang="de-DE"></div>
+          <div class="time-field"><label for="dailyEnd">OFF at</label><input type="time" id="dailyEnd" step="1" value="18:00:00" lang="de-DE"></div>
         </div>
         <div class="row-actions">
           <button id="setDailyBtn" class="primary" disabled>Set as Daily</button>
@@ -408,8 +409,8 @@
 
       <div class="tab-panel" id="tab-duration">
         <div class="time-row">
-          <div class="time-field"><label for="durationOn">ON for</label><input type="time" id="durationOn" step="1" value="00:00:10"></div>
-          <div class="time-field"><label for="durationOff">OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05"></div>
+          <div class="time-field"><label for="durationOn">ON for</label><input type="time" id="durationOn" step="1" value="00:00:10" lang="de-DE"></div>
+          <div class="time-field"><label for="durationOff">OFF for</label><input type="time" id="durationOff" step="1" value="00:00:05" lang="de-DE"></div>
         </div>
         <div class="row-actions">
           <button id="setDurationBtn" class="primary" disabled>Set as Duration</button>
@@ -553,12 +554,18 @@ const mqttPlugSettings = document.getElementById('mqttPlugSettings');
 const brokerUrlInput = document.getElementById('brokerUrlInput');
 const brokerUserInput = document.getElementById('brokerUserInput');
 const brokerPasswordInput = document.getElementById('brokerPasswordInput');
+const tasmotaFwLink = document.getElementById('tasmotaFwLink');
 
 function syncPlugConnectionFields(){
   const ble = plugModeSelect.value === 'ble';
   blePlugSettings.style.display = ble ? '' : 'none';
   mqttPlugSettings.style.display = ble ? 'none' : '';
+  syncTasmotaFwLink();
 }
+function syncTasmotaFwLink(){
+  tasmotaFwLink.style.display = (plugModeSelect.value === 'mqtt' && plugDeviceTypeSelect.value === 'tasmota') ? 'block' : 'none';
+}
+plugDeviceTypeSelect.addEventListener('change', syncTasmotaFwLink);
 plugModeSelect.addEventListener('change', syncPlugConnectionFields);
 syncPlugConnectionFields();
 
