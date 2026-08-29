@@ -38,6 +38,7 @@ Control your Plug directly through **BLE or MQTT**, or paint your weekly ON/OFF 
 - OTA firmware updates
 - MQTT control and state publishing
 - Browser-based MQTT control through BrAiNPlug-Control
+- Tasmota smart plug support (relay, power monitoring, timers) via MQTT in BrAiNPlug-Control
 - Direct browser-based BLE control on ESP32
 - BLE authentication using HMAC-SHA256 challenge/response
 - Optional BLE enable/disable switch on ESP32
@@ -391,6 +392,7 @@ It supports:
 
 - Bluetooth / Web Bluetooth connection
 - MQTT connection
+- BrAiNPlug (ESPHome) and Tasmota devices, selectable per MQTT plug
 - Saved plug profiles
 - MQTT broker settings
 - Quick Connect without saving
@@ -403,6 +405,33 @@ It supports:
 - ActualDuration and WiFi signal display
 
 For MQTT connections, enter the plug's `topic_prefix` and a broker URL with WebSocket support. For BLE connections, enter the BLE key and select the plug from the browser Bluetooth chooser.
+
+### Tasmota support (MQTT)
+
+BrAiNPlug-Control can also control regular **Tasmota** smart plugs over MQTT, alongside BrAiNPlug devices, in the same saved plug list. Select **Tasmota** as the device type when adding an MQTT plug, and enter the Tasmota device's `Topic` (default `FullTopic` layout `%prefix%/%topic%/` assumed).
+
+Used topics:
+
+```text
+cmnd/<topic>/POWER
+cmnd/<topic>/Timer1 ... Timer16
+stat/<topic>/POWER
+stat/<topic>/RESULT
+tele/<topic>/STATE
+tele/<topic>/SENSOR
+```
+
+**Timer handling:** Tasmota's own timer editor is not used. Instead, the Weekly/Daily schedule is built the same way as for BrAiNPlug (grid or Daily start/end fields), and on **Set** it's translated into Tasmota's native `Timer1`–`Timer16` JSON commands (two slots per ON/OFF window, up to 16 slots total). Any unused slots are explicitly disarmed, so no leftover Tasmota-side timers stay active. On connect, all 16 slots are queried back and reconstructed into the Weekly grid or Daily fields; a schedule where every day of the week has the exact same single ON/OFF window is recognized and shown as Daily automatically.
+
+Not supported for Tasmota devices (no equivalent over the standard Tasmota MQTT topic set):
+
+- ChildLock
+- PowerONMode
+- Duration timer mode (Tasmota timers are clock-time events, not repeating ON/OFF intervals)
+
+A link to a small Tasmota firmware update helper is shown once "Tasmota" is selected as the device type:
+
+**[TMUP – Tasmota MQTT Update](https://braineebug.github.io/TMUP/tmup.html)**
 
 ---
 # Installation
