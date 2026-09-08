@@ -95,6 +95,7 @@
   }
   .signal-badge.wifi{ color:var(--ok); background:rgba(74,222,128,0.12); border:1px solid rgba(74,222,128,0.3); }
   .signal-badge.bt{ color:#60a5fa; background:rgba(96,165,250,0.12); border:1px solid rgba(96,165,250,0.3); }
+  .signal-badge.mqtt{ color:#c084fc; background:rgba(192,132,252,0.12); border:1px solid rgba(192,132,252,0.3); }
 
   .status-grid{
     display:grid; grid-template-columns: repeat(2, 1fr); gap:12px; margin-top:14px;
@@ -223,7 +224,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.5)</h1>
+  <h1>BrAiNPlug — Control (1.6.6)</h1>
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
@@ -238,6 +239,7 @@
           <span id="statusText">Not connected</span>
           <span class="signal-badge wifi" id="wifiSignalBadge" style="display:none;">WiFi <span id="wifiSignalValue">–</span> dBm</span>
           <span class="signal-badge bt" id="btSignalBadge" style="display:none;">BLE-MODE</span>
+          <span class="signal-badge mqtt" id="mqttSignalBadge" style="display:none;">MQTT-MODE</span>
         </div>
       </div>
     </div>
@@ -622,6 +624,7 @@ document.getElementById('quickConnectBtn').addEventListener('click', async () =>
     activeTransport = mqttTransport;
     statusText.textContent = 'MQTT Quick Connect';
     setConnectedUI(true);
+    mqttSignalBadge.style.display = 'inline';
     if (deviceType === 'tasmota') refreshTasmotaState();
   } catch (err) {
     statusText.textContent = 'MQTT connect failed: ' + err.message;
@@ -971,6 +974,7 @@ async function selectPlug(plug){
     activeTransport = mqttTransport;
     statusText.textContent = plug.name;
     setConnectedUI(true);
+    mqttSignalBadge.style.display = 'inline';
     if (mqttDeviceType === 'tasmota') refreshTasmotaState();
   } catch (err) {
     statusText.textContent = 'MQTT connect failed: ' + err.message;
@@ -986,6 +990,7 @@ const statusText = document.getElementById('statusText');
 const wifiSignalBadge = document.getElementById('wifiSignalBadge');
 const wifiSignalValue = document.getElementById('wifiSignalValue');
 const btSignalBadge = document.getElementById('btSignalBadge');
+const mqttSignalBadge = document.getElementById('mqttSignalBadge');
 const relaySwitch = document.getElementById('relaySwitch');
 const relaySub = document.getElementById('relaySub');
 const childlockSwitch = document.getElementById('childlockSwitch');
@@ -1054,6 +1059,7 @@ function setConnectedUI(connected){
     powerModeSelect.value = 'Last State';
     wifiSignalBadge.style.display = 'none';
     btSignalBadge.style.display = 'none';
+    mqttSignalBadge.style.display = 'none';
     lastTimerMode = ''; lastTimerStatus = '';
     updateTimerSummary('', '');
   }
@@ -1210,6 +1216,7 @@ async function connectBle(overridePin, targetName = ''){
     statusText.textContent = device.name || targetName || 'BrAiNPlug';
     setConnectedUI(true);
     btSignalBadge.style.display = 'inline';
+    mqttSignalBadge.style.display = 'none';
   } catch (err) {
     statusText.textContent = 'Connection failed: ' + err.message;
     statusDot.classList.add('err');
