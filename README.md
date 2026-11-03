@@ -1,4 +1,4 @@
-# BrAiNPlug 1.6.0
+# BrAiNPlug 1.6.1
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-compatible-blue.svg)](https://esphome.io)
 [![Platform](https://img.shields.io/badge/platform-ESP8266%20%2F%20ESP32-orange.svg)](https://www.espressif.com/)
