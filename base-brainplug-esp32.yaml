@@ -7,7 +7,7 @@ substitutions:
   mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.6.0_ESP32
+  comment: BrAiN_Plug_1.6.1_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -101,16 +101,16 @@ globals:
     restore_value: false
     initial_value: "false"
 
-mqtt:
-  broker: ${mqttbroker}
-  id: mqtt_client
-  username: !secret mqtt_username
-  password: !secret mqtt_password
-  topic_prefix: ${device_name}
+#mqtt:
+#  broker: ${mqttbroker}
+#  id: mqtt_client
+#  username: !secret mqtt_username
+#  password: !secret mqtt_password
+#  topic_prefix: ${device_name}
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    encryption:
    # allow_partition_access: true
 
 wifi:
@@ -216,6 +216,7 @@ web_server:
     password: !secret webgui_password
     username: admin
     type: digest
+  ota: false
 
 # --- BLE control (Web Bluetooth) ---
 # Custom GATT service so the plug can be controlled straight from a browser
@@ -674,7 +675,7 @@ text_sensor:
   - platform: template
     name: "ActualDuration"
     id: relay_duration_display
-    state_topic: "${device_name}/text_sensor/actualduration/state" #needed for mqtt idk..
+    #state_topic: "${device_name}/text_sensor/actualduration/state" #needed for mqtt idk..
     update_interval: 5min
     lambda: |-
       auto now = id(timesrc).now();

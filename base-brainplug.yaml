@@ -8,7 +8,7 @@ substitutions:
   mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.6.0
+  comment: BrAiN_Plug_1.6.1
   name: ${device_name}
   friendly_name: ${friendly_name}
   on_boot:
@@ -70,7 +70,7 @@ globals:
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    encryption:
 
 wifi:
   id: wifi_component
@@ -175,6 +175,7 @@ web_server:
     username: admin
     type: digest
 
+  ota: false
 time:
   - platform: sntp
     id: timesrc
