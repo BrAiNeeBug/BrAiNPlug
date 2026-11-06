@@ -1,10 +1,11 @@
-# BrAiNPlug 1.6.1 (self maintained repo no releases! Newest Version always in "main")
+# BrAiNPlug 1.6.1
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-compatible-blue.svg)](https://esphome.io)
 [![Platform](https://img.shields.io/badge/platform-ESP8266%20%2F%20ESP32-orange.svg)](https://www.espressif.com/)
 [![License](https://img.shields.io/badge/license-BrAiNPub_OSO_FFA-green.svg)](https://bk-net.tk)
 
 ESPHome based smart plug firmware for **ESP8266 / ESP8285 and ESP32**.
+(self maintained repo no releases! Newest Version always in "main")
 
 BrAiNPlug adds advanced timer handling, power recovery behavior, persistent runtime tracking and optional power monitoring to compatible smart plugs.
 
@@ -16,7 +17,7 @@ Control your Plug directly through **BLE or MQTT**, or paint your weekly ON/OFF 
 ---
 
 # Features
-
+<img width="50%" height="59%" alt="image" src="https://github.com/user-attachments/assets/e9366ab6-a811-4db1-82c9-e3a71903d5fc" />
 - ESPHome based firmware
 - ESP8266 / ESP8285 / ESP32 support
 - Low-Power Consumption your Plug stays C☻☻L
