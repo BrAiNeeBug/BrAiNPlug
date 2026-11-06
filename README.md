@@ -17,7 +17,6 @@ Control your Plug directly through **BLE or MQTT**, or paint your weekly ON/OFF 
 ---
 
 # Features
-<img width="50%" height="59%" alt="image" src="https://github.com/user-attachments/assets/e9366ab6-a811-4db1-82c9-e3a71903d5fc" />
 
 - ESPHome based firmware
 - ESP8266 / ESP8285 / ESP32 support
@@ -45,6 +44,7 @@ Control your Plug directly through **BLE or MQTT**, or paint your weekly ON/OFF 
 - BLE authentication using HMAC-SHA256 challenge/response
 - Optional BLE enable/disable switch on ESP32
 
+<img width="50%" height="59%" alt="image" src="https://github.com/user-attachments/assets/e9366ab6-a811-4db1-82c9-e3a71903d5fc" />
 ---
 
 # Repository Structure
