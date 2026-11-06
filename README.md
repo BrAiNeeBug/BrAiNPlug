@@ -1169,6 +1169,10 @@ Calibration values from another plug should not automatically be copied to a dif
 ## Current Release
 
 **v1.6.0**  
+
+Known issues:
+No BT-Connection if you dont use pwrmeter-brainplug.yaml this is because if you disbale the advertisments for the power stuff it cant connect anymore...
+
 Released: **2026-08-23**
 
 Highlights:
