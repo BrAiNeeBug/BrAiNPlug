@@ -5,6 +5,7 @@
 [![License](https://img.shields.io/badge/license-BrAiNPub_OSO_FFA-green.svg)](https://bk-net.tk)
 
 ESPHome based smart plug firmware for **ESP8266 / ESP8285 and ESP32**.
+
 (self maintained repo no releases! Newest Version always in "main")
 
 BrAiNPlug adds advanced timer handling, power recovery behavior, persistent runtime tracking and optional power monitoring to compatible smart plugs.
