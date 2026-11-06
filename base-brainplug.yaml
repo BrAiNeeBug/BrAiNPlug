@@ -83,12 +83,12 @@ wifi:
   power_save_mode: NONE #leave on NONE otherwise your plug will beep when relay is off :D
   domain: ${localdomain}
 
-mqtt:
-  broker: ${mqttbroker}
-  id: mqtt_client
-  username: !secret mqtt_username
-  password: !secret mqtt_password
-  topic_prefix: ${device_name}
+#mqtt:
+#  broker: ${mqttbroker}
+#  id: mqtt_client
+#  username: !secret mqtt_username
+#  password: !secret mqtt_password
+#  topic_prefix: ${device_name}
 
 captive_portal:
 
@@ -360,7 +360,7 @@ text_sensor:
   - platform: template
     name: "ActualDuration"
     id: relay_duration_display
-    state_topic: "${device_name}/text_sensor/actualduration/state" #needed for mqtt idk..
+    #state_topic: "${device_name}/text_sensor/actualduration/state" #needed for mqtt idk..
     lambda: |-
       auto now = id(timesrc).now();
       if (!now.is_valid()) return {"NA"};
