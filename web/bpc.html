@@ -1033,13 +1033,17 @@ function applyDeviceCapabilitiesUI(){
   actualDurationStat.style.display = tasmota ? 'none' : '';
   tasmotaTimerHint.style.display = tasmota ? '' : 'none';
 
-  // BLE without the pwrmeter package: hide the measurement tiles that have no characteristic
-  const bleConnected = !!(activeTransport && activeTransport.kind === 'ble');
-  [['power', powerValue], ['voltage', voltageValue], ['current', currentValue], ['energy', energyValue]]
-    .forEach(([key, el]) => {
-      const tile = el.closest('.stat');
-      if (tile) tile.style.display = (bleConnected && !chars[key]) ? 'none' : '';
-    });
+  // No power meter (BLE char missing / no MQTT sensor topic): hide measurement tiles that never got a value.
+  // Tiles reappear as soon as a value arrives (see showStatTile).
+  const connected = !!activeTransport;
+  [powerValue, voltageValue, currentValue, energyValue].forEach(el => {
+    const tile = el.closest('.stat');
+    if (tile) tile.style.display = (connected && el.textContent.trim() === '–') ? 'none' : '';
+  });
+}
+function showStatTile(el){
+  const tile = el.closest('.stat');
+  if (tile) tile.style.display = '';
 }
 
 function setConnectedUI(connected){
@@ -1389,16 +1393,16 @@ function updateWifiSignal(v){
   wifiSignalValue.textContent = Math.round(v);
 }
 function updatePower(v){
-  powerValue.textContent = (Math.round(v * 10) / 10) + ' W';
+  powerValue.textContent = (Math.round(v * 10) / 10) + ' W'; showStatTile(powerValue);
 }
 function updateVoltage(v){
-  voltageValue.textContent = (Math.round(v * 10) / 10) + ' V';
+  voltageValue.textContent = (Math.round(v * 10) / 10) + ' V'; showStatTile(voltageValue);
 }
 function updateCurrent(v){
-  currentValue.textContent = (Math.round(v * 1000) / 1000) + ' A';
+  currentValue.textContent = (Math.round(v * 1000) / 1000) + ' A'; showStatTile(currentValue);
 }
 function updateEnergy(v){
-  energyValue.textContent = (Math.round(v * 1000) / 1000) + ' kWh';
+  energyValue.textContent = (Math.round(v * 1000) / 1000) + ' kWh'; showStatTile(energyValue);
 }
 
 relaySwitch.addEventListener('click', async () => {
