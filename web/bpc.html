@@ -225,7 +225,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (1.6.6)</h1>
+  <h1>BrAiNPlug — Control (BPC)</h1>
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
@@ -1188,8 +1188,22 @@ async function connectBle(overridePin, targetName = ''){
     }
     if (!gattServer) throw connectErr;
     const service = await gattServer.getPrimaryService(SERVICE_UUID);
+    chars = {};
+
+    // Power-meter characteristics are optional. Devices without pwrmeter-brainplug.yaml
+    // simply omit these four characteristics; that must not block the BLE connection.
+    const OPTIONAL_CHAR_KEYS = new Set(['power', 'voltage', 'current', 'energy']);
     for (const [key, uuid] of Object.entries(CHAR_UUIDS)){
-      chars[key] = await service.getCharacteristic(uuid);
+      try {
+        chars[key] = await service.getCharacteristic(uuid);
+      } catch (err) {
+        if (OPTIONAL_CHAR_KEYS.has(key) &&
+            (err.name === 'NotFoundError' || err.name === 'InvalidStateError')){
+          console.info(`[BLE] Optional characteristic '${key}' not present; power-meter display disabled.`);
+          continue;
+        }
+        throw err;
+      }
     }
     const nonceVal = await chars.nonce.readValue();
     const nonceBytes = new Uint8Array(nonceVal.buffer, nonceVal.byteOffset, nonceVal.byteLength);
@@ -1269,24 +1283,35 @@ async function subscribeAll(){
 
 let statsPollTimer = null;
 let statsPollIndex = 0;
-const statsPollSequence = [
-  async () => updatePower((await chars.power.readValue()).getFloat32(0, true)),
-  async () => updateVoltage((await chars.voltage.readValue()).getFloat32(0, true)),
-  async () => updateCurrent((await chars.current.readValue()).getFloat32(0, true)),
-  async () => updateEnergy((await chars.energy.readValue()).getFloat32(0, true)),
-  async () => updateActualDuration(dec.decode(await chars.actualduration.readValue())),
-  async () => updateWifiSignal((await chars.wifisignal.readValue()).getFloat32(0, true)),
-];
+function getStatsPollSequence(){
+  const sequence = [];
+
+  // Power-meter values are optional and are only polled when their
+  // corresponding BLE characteristics actually exist.
+  if (chars.power) sequence.push(async () => updatePower((await chars.power.readValue()).getFloat32(0, true)));
+  if (chars.voltage) sequence.push(async () => updateVoltage((await chars.voltage.readValue()).getFloat32(0, true)));
+  if (chars.current) sequence.push(async () => updateCurrent((await chars.current.readValue()).getFloat32(0, true)));
+  if (chars.energy) sequence.push(async () => updateEnergy((await chars.energy.readValue()).getFloat32(0, true)));
+
+  // These diagnostics remain available even on plugs without a power meter.
+  if (chars.actualduration) sequence.push(async () => updateActualDuration(dec.decode(await chars.actualduration.readValue())));
+  if (chars.wifisignal) sequence.push(async () => updateWifiSignal((await chars.wifisignal.readValue()).getFloat32(0, true)));
+
+  return sequence;
+}
 
 function startStatsPolling(){
   stopStatsPolling();
   statsPollIndex = 0;
 
   statsPollTimer = setInterval(async () => {
-    if (!device || !device.gatt || !device.gatt.connected || !chars.power) return;
+    if (!device || !device.gatt || !device.gatt.connected) return;
 
-    const step = statsPollSequence[statsPollIndex];
-    statsPollIndex = (statsPollIndex + 1) % statsPollSequence.length;
+    const sequence = getStatsPollSequence();
+    if (!sequence.length) return;
+
+    const step = sequence[statsPollIndex % sequence.length];
+    statsPollIndex = (statsPollIndex + 1) % sequence.length;
     try {
       await step();
     } catch (err) {
@@ -1308,12 +1333,12 @@ async function refreshAll(){
   const modeStr = dec.decode(await chars.timermode.readValue());
   updateTimerMode(modeStr);
   updatePowerMode(dec.decode(await chars.powermode.readValue()));
-  updateActualDuration(dec.decode(await chars.actualduration.readValue()));
-  updatePower((await chars.power.readValue()).getFloat32(0, true));
-  updateVoltage((await chars.voltage.readValue()).getFloat32(0, true));
-  updateCurrent((await chars.current.readValue()).getFloat32(0, true));
-  updateEnergy((await chars.energy.readValue()).getFloat32(0, true));
-  updateWifiSignal((await chars.wifisignal.readValue()).getFloat32(0, true));
+  if (chars.actualduration) updateActualDuration(dec.decode(await chars.actualduration.readValue()));
+  if (chars.power) updatePower((await chars.power.readValue()).getFloat32(0, true));
+  if (chars.voltage) updateVoltage((await chars.voltage.readValue()).getFloat32(0, true));
+  if (chars.current) updateCurrent((await chars.current.readValue()).getFloat32(0, true));
+  if (chars.energy) updateEnergy((await chars.energy.readValue()).getFloat32(0, true));
+  if (chars.wifisignal) updateWifiSignal((await chars.wifisignal.readValue()).getFloat32(0, true));
   try {
     updateTimerStatus(dec.decode(await chars.timerstatus.readValue()));
   } catch (err) {
