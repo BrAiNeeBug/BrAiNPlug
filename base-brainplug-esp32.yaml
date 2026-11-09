@@ -7,7 +7,7 @@ substitutions:
   mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.6.2_ESP32
+  comment: BrAiN_Plug_1.6.3_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -858,7 +858,14 @@ switch:
                 else:
                   - lambda: 'id(ble_ever_enabled) = true;'
                   - ble.enable:
+                  # persist the new state right away (flash_write_interval would delay it up to 30s)
+                  - delay: 200ms
+                  - lambda: 'global_preferences->sync();'
     on_turn_off:
+      # Flush the OFF state to flash BEFORE touching the BLE stack, otherwise a reset
+      # during/after ble.disable restores the old "ON" state and BT comes back up.
+      - delay: 200ms
+      - lambda: 'global_preferences->sync();'
       - ble.disable:
     web_server:
       sorting_weight: 1

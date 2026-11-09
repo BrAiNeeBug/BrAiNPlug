@@ -8,7 +8,7 @@ substitutions:
   mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.6.2
+  comment: BrAiN_Plug_1.6.3
   name: ${device_name}
   friendly_name: ${friendly_name}
   on_boot:
