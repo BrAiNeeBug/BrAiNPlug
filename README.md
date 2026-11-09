@@ -1,4 +1,4 @@
-# BrAiNPlug 1.6.1
+# BrAiNPlug 1.6.2
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-compatible-blue.svg)](https://esphome.io)
 [![Platform](https://img.shields.io/badge/platform-ESP8266%20%2F%20ESP32-orange.svg)](https://www.espressif.com/)
@@ -1168,12 +1168,12 @@ Calibration values from another plug should not automatically be copied to a dif
 
 ## Current Release
 
-**v1.6.0**  
+**v1.6.2**  
 
 Known issues:
-No BT-Connection if you dont use pwrmeter-brainplug.yaml this is because if you disbale the advertisments for the power stuff it cant connect anymore...
+None
 
-Released: **2026-08-23**
+Released: **2026-11-09**
 
 Highlights:
 
