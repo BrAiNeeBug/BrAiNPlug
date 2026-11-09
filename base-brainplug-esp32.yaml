@@ -7,7 +7,7 @@ substitutions:
   mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.6.1_ESP32
+  comment: BrAiN_Plug_1.6.2_ESP32
   name: ${device_name}
   friendly_name: ${friendly_name}
   includes:
@@ -221,10 +221,8 @@ web_server:
 # --- BLE control (Web Bluetooth) ---
 # Custom GATT service so the plug can be controlled straight from a browser
 # (navigator.bluetooth) without a dedicated app, alongside the existing WiFi API/HA.
-# NOTE: the "power", "voltage", "current" and "energy" characteristics assume this file
-# is packaged together with pwrmeter-brainplug.yaml (ids: power_sensor, voltage_sensor,
-# current_sensor, total_energy_display) as it is for the Nous A8T - if a given ESP32
-# device doesn't include that package, remove those four characteristic blocks.
+# Optional power-meter characteristics live in the pwrmeter package's second service
+# instance (same service UUID); bpc.html searches all matching service instances.
 esp32_ble:
   enable_on_boot: false  # BLE stack stays off until the "Bluetooth" switch enables it
 esp32_ble_server:
@@ -415,34 +413,6 @@ esp32_ble_server:
                         value: !lambda 'return std::string(x.begin(), x.end());'
                   else:
                     - lambda: 'ESP_LOGW("ble_auth", "TimerConf write rejected - not authenticated");'
-        - id: ble_power_char
-          uuid: 18074a57-a3ba-49a6-a958-d49525bb9434
-          read: true
-          value:
-            data: !lambda |-
-              if (!id(ble_authed)) return std::vector<uint8_t>{};
-              return bytebuffer::ByteBuffer::wrap(id(power_sensor).state).get_data();
-        - id: ble_voltage_char
-          uuid: eef5b493-e0b5-4257-b79f-5945b52fc4b4
-          read: true
-          value:
-            data: !lambda |-
-              if (!id(ble_authed)) return std::vector<uint8_t>{};
-              return bytebuffer::ByteBuffer::wrap(id(voltage_sensor).state).get_data();
-        - id: ble_current_char
-          uuid: e512c5a0-e726-478f-94ae-e19218f60118
-          read: true
-          value:
-            data: !lambda |-
-              if (!id(ble_authed)) return std::vector<uint8_t>{};
-              return bytebuffer::ByteBuffer::wrap(id(current_sensor).state).get_data();
-        - id: ble_energy_char
-          uuid: d3134b34-4635-4d72-9e50-49053be2bc19
-          read: true
-          value:
-            data: !lambda |-
-              if (!id(ble_authed)) return std::vector<uint8_t>{};
-              return bytebuffer::ByteBuffer::wrap(id(total_energy_display).state).get_data();
         - id: ble_actualduration_char
           uuid: f848732a-d062-457c-aa8e-66c1b5e5fa2e
           read: true

@@ -18,6 +18,39 @@ globals:
     restore_value: true
     initial_value: "0"
 
+esp32_ble_server:
+  services:
+    - uuid: a36c6568-2877-466d-ad19-bdbf301199a8
+      characteristics:   
+      - id: ble_power_char
+        uuid: 18074a57-a3ba-49a6-a958-d49525bb9434
+        read: true
+        value:
+          data: !lambda |-
+            if (!id(ble_authed)) return std::vector<uint8_t>{};
+            return bytebuffer::ByteBuffer::wrap(id(power_sensor).state).get_data();
+      - id: ble_voltage_char
+        uuid: eef5b493-e0b5-4257-b79f-5945b52fc4b4
+        read: true
+        value:
+          data: !lambda |-
+            if (!id(ble_authed)) return std::vector<uint8_t>{};
+            return bytebuffer::ByteBuffer::wrap(id(voltage_sensor).state).get_data();
+      - id: ble_current_char
+        uuid: e512c5a0-e726-478f-94ae-e19218f60118
+        read: true
+        value:
+          data: !lambda |-
+            if (!id(ble_authed)) return std::vector<uint8_t>{};
+            return bytebuffer::ByteBuffer::wrap(id(current_sensor).state).get_data();
+      - id: ble_energy_char
+        uuid: d3134b34-4635-4d72-9e50-49053be2bc19
+        read: true
+        value:
+          data: !lambda |-
+            if (!id(ble_authed)) return std::vector<uint8_t>{};
+            return bytebuffer::ByteBuffer::wrap(id(total_energy_display).state).get_data();
+
 sensor:
   - platform: hlw8012
     model: bl0937

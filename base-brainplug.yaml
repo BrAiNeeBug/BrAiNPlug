@@ -8,7 +8,7 @@ substitutions:
   mqttbroker: "homeassistant.local"
 
 esphome:
-  comment: BrAiN_Plug_1.6.1
+  comment: BrAiN_Plug_1.6.2
   name: ${device_name}
   friendly_name: ${friendly_name}
   on_boot:
@@ -174,7 +174,6 @@ web_server:
     password: !secret webgui_password
     username: admin
     type: digest
-
   ota: false
 time:
   - platform: sntp
