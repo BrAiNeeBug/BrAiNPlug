@@ -1032,6 +1032,14 @@ function applyDeviceCapabilitiesUI(){
   powerModeRow.style.display = tasmota ? 'none' : '';
   actualDurationStat.style.display = tasmota ? 'none' : '';
   tasmotaTimerHint.style.display = tasmota ? '' : 'none';
+
+  // BLE without the pwrmeter package: hide the measurement tiles that have no characteristic
+  const bleConnected = !!(activeTransport && activeTransport.kind === 'ble');
+  [['power', powerValue], ['voltage', voltageValue], ['current', currentValue], ['energy', energyValue]]
+    .forEach(([key, el]) => {
+      const tile = el.closest('.stat');
+      if (tile) tile.style.display = (bleConnected && !chars[key]) ? 'none' : '';
+    });
 }
 
 function setConnectedUI(connected){
@@ -1154,10 +1162,12 @@ async function connectBle(overridePin, targetName = ''){
     return;
   }
   try {
-    const filters = [{ services: [SERVICE_UUID] }];
-    if (targetName) {
-      filters.push({ namePrefix: targetName });
-    }
+    // Match by advertised service UUID OR by name, so it also works when the
+    // firmware doesn't put the service UUID into the advertisement.
+    const filters = [
+      { services: [SERVICE_UUID] },
+      { namePrefix: targetName || 'brainplug' }
+    ];
     
     device = await navigator.bluetooth.requestDevice({
       filters: filters,
