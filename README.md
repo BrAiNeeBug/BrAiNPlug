@@ -1,4 +1,4 @@
-# BrAiNPlug 1.6.2
+# BrAiNPlug 1.6.3
 
 [![ESPHome](https://img.shields.io/badge/ESPHome-compatible-blue.svg)](https://esphome.io)
 [![Platform](https://img.shields.io/badge/platform-ESP8266%20%2F%20ESP32-orange.svg)](https://www.espressif.com/)
@@ -1168,7 +1168,7 @@ Calibration values from another plug should not automatically be copied to a dif
 
 ## Current Release
 
-**v1.6.2**  
+**v1.6.3**  
 
 Known issues:
 None
