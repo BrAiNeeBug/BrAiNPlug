@@ -225,7 +225,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>BrAiNPlug — Control (BPC)</h1>
+  <h1>BPC</h1>
   <p class="subtitle">Controls BrAiNPlug ESP32 plugs via <a href="https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API" style="color:var(--accent)">Web Bluetooth</a> or MQTT</p>
 
   <div class="panel">
@@ -1187,22 +1187,28 @@ async function connectBle(overridePin, targetName = ''){
       }
     }
     if (!gattServer) throw connectErr;
-    const service = await gattServer.getPrimaryService(SERVICE_UUID);
+    // A package may add a second primary-service instance with the same UUID
+    // for optional power-meter characteristics. Search every matching instance.
+    const services = await gattServer.getPrimaryServices(SERVICE_UUID);
+    if (!services.length) throw new Error('BrAiNPlug BLE service not found.');
     chars = {};
-
-    // Power-meter characteristics are optional. Devices without pwrmeter-brainplug.yaml
-    // simply omit these four characteristics; that must not block the BLE connection.
-    const OPTIONAL_CHAR_KEYS = new Set(['power', 'voltage', 'current', 'energy']);
+    const optionalChars = new Set(['power', 'voltage', 'current', 'energy']);
     for (const [key, uuid] of Object.entries(CHAR_UUIDS)){
-      try {
-        chars[key] = await service.getCharacteristic(uuid);
-      } catch (err) {
-        if (OPTIONAL_CHAR_KEYS.has(key) &&
-            (err.name === 'NotFoundError' || err.name === 'InvalidStateError')){
-          console.info(`[BLE] Optional characteristic '${key}' not present; power-meter display disabled.`);
-          continue;
+      let characteristic = null;
+      for (const service of services){
+        try {
+          characteristic = await service.getCharacteristic(uuid);
+          break;
+        } catch (err) {
+          if (err.name !== 'NotFoundError') throw err;
         }
-        throw err;
+      }
+      if (characteristic){
+        chars[key] = characteristic;
+      } else if (optionalChars.has(key)){
+        console.info(`[BLE] Optional power-meter characteristic '${key}' not present.`);
+      } else {
+        throw new Error(`Required BLE characteristic '${key}' not found.`);
       }
     }
     const nonceVal = await chars.nonce.readValue();
@@ -1285,32 +1291,24 @@ let statsPollTimer = null;
 let statsPollIndex = 0;
 function getStatsPollSequence(){
   const sequence = [];
-
-  // Power-meter values are optional and are only polled when their
-  // corresponding BLE characteristics actually exist.
   if (chars.power) sequence.push(async () => updatePower((await chars.power.readValue()).getFloat32(0, true)));
   if (chars.voltage) sequence.push(async () => updateVoltage((await chars.voltage.readValue()).getFloat32(0, true)));
   if (chars.current) sequence.push(async () => updateCurrent((await chars.current.readValue()).getFloat32(0, true)));
   if (chars.energy) sequence.push(async () => updateEnergy((await chars.energy.readValue()).getFloat32(0, true)));
-
-  // These diagnostics remain available even on plugs without a power meter.
   if (chars.actualduration) sequence.push(async () => updateActualDuration(dec.decode(await chars.actualduration.readValue())));
   if (chars.wifisignal) sequence.push(async () => updateWifiSignal((await chars.wifisignal.readValue()).getFloat32(0, true)));
-
   return sequence;
 }
 
 function startStatsPolling(){
   stopStatsPolling();
   statsPollIndex = 0;
+  const sequence = getStatsPollSequence();
+  if (!sequence.length) return;
 
   statsPollTimer = setInterval(async () => {
     if (!device || !device.gatt || !device.gatt.connected) return;
-
-    const sequence = getStatsPollSequence();
-    if (!sequence.length) return;
-
-    const step = sequence[statsPollIndex % sequence.length];
+    const step = sequence[statsPollIndex];
     statsPollIndex = (statsPollIndex + 1) % sequence.length;
     try {
       await step();
